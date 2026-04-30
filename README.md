@@ -33,6 +33,11 @@ vim.pack.add({
 
 then just `:Slop <prompt>?` and away you go.
 
+## keybindings
+
+- `<C-c>` to abort
+- `<Tab>` to switch model
+
 ## configuration
 
 ```lua
