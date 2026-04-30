@@ -1,0 +1,37 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    lint:
+        name: Lint
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install stylua
+              uses: JohnnyMorganz/stylua-action@v4
+              with:
+                  version: latest
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  args: false
+            - name: Run lint
+              run: make lint
+
+    test:
+        name: Test
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - name: Install Neovim
+              uses: rhysd/action-setup-vim@v1
+              with:
+                  neovim: true
+                  version: stable
+            - name: Install ripgrep
+              run: sudo apt-get update && sudo apt-get install -y ripgrep
+            - name: Run tests
+              run: make test
