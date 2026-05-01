@@ -4,13 +4,6 @@ local async = require('async')
 local text = require('slopcode.utils.text')
 local system = async.wrap(3, vim.system)
 
---- Convert path to POSIX separators.
---- @param value string
---- @return string
-local function to_posix_path(value)
-    return value:gsub('\\', '/')
-end
-
 return {
     promptSnippet = 'Find files by glob pattern (respects .gitignore)',
 
@@ -34,7 +27,7 @@ return {
     --- @return string
     handler = function(args)
         local pattern = args.pattern
-        local path = args.path and vim.fn.expand(args.path) or '.'
+        local path = vim.fs.abspath(args.path or '.')
         local limit = args.limit or 1000
 
         if not pattern or pattern == '' then
@@ -75,16 +68,11 @@ return {
         -- Split into lines and relativize
         local lines = vim.split(output, '\n', { plain = true })
         local relativized = {}
-        local search_path = path:gsub('/+$', '')
 
         for _, line in ipairs(lines) do
             local trimmed = line:gsub('\r$', ''):match('^%s*(.-)%s*$')
             if trimmed and trimmed ~= '' then
-                local rel = trimmed
-                if trimmed:find('^' .. vim.pesc(search_path)) then
-                    rel = trimmed:sub(#search_path + 2)
-                end
-                relativized[#relativized + 1] = to_posix_path(rel)
+                relativized[#relativized + 1] = vim.fs.relpath(path, trimmed) or trimmed
             end
         end
 

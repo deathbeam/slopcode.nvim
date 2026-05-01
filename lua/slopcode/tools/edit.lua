@@ -73,7 +73,7 @@ return {
     --- @async
     --- @return string
     handler = function(args)
-        local path = vim.fn.expand(args.path)
+        local path = vim.fs.abspath(args.path)
         local edits = args.edits
 
         -- Read raw file content from filesystem

@@ -20,9 +20,10 @@ end
 --- @param json_lines string[]  Lines from rg --json output
 --- @param context integer  Number of context lines requested
 --- @param max_line_len integer  Max chars per output line
+--- @param base_path string  Base directory for relativizing file paths
 --- @return string[] formatted  Formatted output lines
 --- @return integer match_count  Number of match lines
-local function parse_rg_json(json_lines, context, max_line_len)
+local function parse_rg_json(json_lines, context, max_line_len, base_path)
     local matches = {} -- { file, line_num, text, is_match }
     local current_file = nil
 
@@ -37,6 +38,9 @@ local function parse_rg_json(json_lines, context, max_line_len)
 
         if data.type == 'begin' then
             current_file = data.data and data.data.path and data.data.path.text or nil
+            if current_file and base_path then
+                current_file = vim.fs.relpath(base_path, current_file) or current_file
+            end
         elseif data.type == 'match' then
             if data.data then
                 local line_num = data.data.line_number
@@ -122,7 +126,7 @@ return {
     --- @return string
     handler = function(args)
         local pattern = args.pattern
-        local path = args.path and vim.fn.expand(args.path) or '.'
+        local path = vim.fs.abspath(args.path or '.')
         local limit = args.limit or 100
         local context = args.context or 0
         local max_line_len = 500
@@ -165,7 +169,7 @@ return {
         end
 
         local json_lines = vim.split(output, '\n', { plain = true })
-        local formatted, match_count = parse_rg_json(json_lines, context, max_line_len)
+        local formatted, match_count = parse_rg_json(json_lines, context, max_line_len, path)
 
         if match_count == 0 then
             return 'No matches found.'

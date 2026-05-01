@@ -29,7 +29,7 @@ return {
     --- @async
     --- @return string
     handler = function(args)
-        local path = vim.fn.expand(args.path)
+        local path = vim.fs.abspath(args.path)
         local offset = args.offset
         local limit = args.limit or 2000
 

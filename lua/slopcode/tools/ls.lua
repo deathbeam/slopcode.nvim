@@ -20,7 +20,7 @@ return {
     --- @async
     --- @return string
     handler = function(args)
-        local path = args.path and vim.fn.expand(args.path) or '.'
+        local path = vim.fs.abspath(args.path or '.')
         local limit = args.limit or 250
         local stat = vim.uv.fs_stat(path)
 

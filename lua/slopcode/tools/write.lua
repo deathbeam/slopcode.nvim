@@ -20,7 +20,7 @@ return {
     --- @async
     --- @return string
     handler = function(args)
-        local path = vim.fn.expand(args.path)
+        local path = vim.fs.abspath(args.path)
         local content = args.content or ''
 
         -- Check for unsaved buffer changes before writing

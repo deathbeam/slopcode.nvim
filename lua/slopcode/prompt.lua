@@ -22,7 +22,7 @@ function M.load()
     local found, seen = {}, {}
 
     for _, raw in ipairs(config.context or {}) do
-        local pattern = vim.fn.expand(raw)
+        local pattern = vim.fs.abspath(raw)
         local is_glob = pattern:find('[%*%?%[%]]')
         local has_path_sep = pattern:find('/')
 

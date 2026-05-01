@@ -40,6 +40,18 @@ local M = {
     O_TRUNC = vim.uv.constants.O_TRUNC,
 }
 
+--- Assert that a path exists and is not a directory.
+--- @param path string
+function M.assert_file(path)
+    local stat = vim.uv.fs_stat(path)
+    if not stat then
+        error('File not found: ' .. path, 0)
+    end
+    if stat.type == 'directory' then
+        error('Is a directory: ' .. path, 0)
+    end
+end
+
 --- Split content into lines, stripping the trailing empty line from a terminal \n.
 --- @param content string
 --- @return string[] lines
@@ -52,18 +64,6 @@ function M.to_lines(content)
         lines[#lines] = nil
     end
     return lines
-end
-
---- Assert that a path exists and is not a directory.
---- @param path string
-function M.assert_file(path)
-    local stat = vim.uv.fs_stat(path)
-    if not stat then
-        error('File not found: ' .. path, 0)
-    end
-    if stat.type == 'directory' then
-        error('Is a directory: ' .. path, 0)
-    end
 end
 
 --- Resolve a path to a buffer number: try the given path, then its absolute form.
@@ -89,7 +89,6 @@ end
 --- @param path string
 --- @return boolean modified, integer? bufnr
 function M.is_modified_buf(path)
-    sync()
     local buf = M.find_buf(path)
     if buf == -1 or not vim.api.nvim_buf_is_loaded(buf) then
         return false, nil
@@ -100,7 +99,6 @@ end
 --- Reload a loaded buffer from disk if it exists.
 --- @param path string
 function M.refresh_buf(path)
-    sync()
     local buf = M.find_buf(path)
     if buf ~= -1 and vim.api.nvim_buf_is_loaded(buf) then
         vim.api.nvim_buf_call(buf, function()
