@@ -955,6 +955,74 @@ local function changed_range(old_lines, new_lines)
     return first_changed, last_changed
 end
 
+--- Validate an anchor against file content.
+--- Tries exact match first, then fuzzy Unicode normalization,
+--- then auto-rebase (search ±REBASE_WINDOW lines for matching hash).
+--- Always returns the parsed line number (even on failure) so callers can
+--- use it for error context without re-parsing.
+--- @param file_lines string[]  1-indexed array of file lines
+--- @param anchor string  anchor reference like "5ab"
+--- @return boolean valid
+--- @return integer? line_num  resolved line number (may differ if rebased); nil only on parse error
+--- @return string? msg  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
+local function validate_anchor(file_lines, anchor)
+    local line, hash_str = parse_anchor_ref(anchor)
+    if line > #file_lines then
+        return false, line, 'Line ' .. line .. ' does not exist (file has ' .. #file_lines .. ' lines).'
+    end
+    local actual = M.hash(line, file_lines[line])
+    if actual == hash_str then
+        return true, line
+    end
+    -- Fuzzy: try with Unicode normalization on the file line
+    local normalized = normalize_unicode(file_lines[line])
+    local fuzzy_hash = M.hash(line, normalized)
+    if fuzzy_hash == hash_str then
+        return true, line, 'FUZZY_MATCH'
+    end
+    -- Auto-rebase: search ±REBASE_WINDOW lines for a matching hash
+    local rebased = try_rebase_anchor(file_lines, line, hash_str)
+    if rebased then
+        return true, rebased, 'REBASED'
+    end
+    return false,
+        line,
+        'Stale anchor: line '
+            .. line
+            .. ' hash is '
+            .. actual
+            .. ', not '
+            .. hash_str
+            .. '. The file has changed since your last read.'
+end
+
+--- Result of validating a single anchor.
+--- @class AnchorResult
+--- @field anchor string  Original anchor reference (e.g. "5ab")
+--- @field valid boolean  Whether the anchor resolved successfully
+--- @field line integer?  Resolved line number (present even on stale-match failure; nil only on parse error)
+--- @field msg string?  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
+
+--- Batch-validate a list of anchors against file content.
+--- Returns results for all anchors plus a collected list of stale mismatches.
+--- @param file_lines string[]  1-indexed array of file lines
+--- @param anchors_list string[]  List of anchor references like "5ab"
+--- @return AnchorResult[] results  One result per anchor, in order
+--- @return AnchorResult[] mismatches  Only the failed results (for error reporting)
+local function validate_anchors(file_lines, anchors_list)
+    local results = {}
+    local mismatches = {}
+    for _, anchor in ipairs(anchors_list) do
+        local valid, line, msg = validate_anchor(file_lines, anchor)
+        local result = { anchor = anchor, valid = valid, line = line, msg = msg }
+        results[#results + 1] = result
+        if not valid then
+            mismatches[#mismatches + 1] = result
+        end
+    end
+    return results, mismatches
+end
+
 --- Compute the 2-character BPE bigram hash for a line at a given number.
 --- Structural lines (whitespace + braces only) get ordinal suffixes.
 --- Non-significant lines (no alphanumeric) are seeded with line number.
@@ -1041,74 +1109,6 @@ function M.strip_hashline(lines)
     return result
 end
 
---- Validate an anchor against file content.
---- Tries exact match first, then fuzzy Unicode normalization,
---- then auto-rebase (search ±REBASE_WINDOW lines for matching hash).
---- Always returns the parsed line number (even on failure) so callers can
---- use it for error context without re-parsing.
---- @param file_lines string[]  1-indexed array of file lines
---- @param anchor string  anchor reference like "5ab"
---- @return boolean valid
---- @return integer? line_num  resolved line number (may differ if rebased); nil only on parse error
---- @return string? msg  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
-function M.validate_anchor(file_lines, anchor)
-    local line, hash_str = parse_anchor_ref(anchor)
-    if line > #file_lines then
-        return false, line, 'Line ' .. line .. ' does not exist (file has ' .. #file_lines .. ' lines).'
-    end
-    local actual = M.hash(line, file_lines[line])
-    if actual == hash_str then
-        return true, line
-    end
-    -- Fuzzy: try with Unicode normalization on the file line
-    local normalized = normalize_unicode(file_lines[line])
-    local fuzzy_hash = M.hash(line, normalized)
-    if fuzzy_hash == hash_str then
-        return true, line, 'FUZZY_MATCH'
-    end
-    -- Auto-rebase: search ±REBASE_WINDOW lines for a matching hash
-    local rebased = try_rebase_anchor(file_lines, line, hash_str)
-    if rebased then
-        return true, rebased, 'REBASED'
-    end
-    return false,
-        line,
-        'Stale anchor: line '
-            .. line
-            .. ' hash is '
-            .. actual
-            .. ', not '
-            .. hash_str
-            .. '. The file has changed since your last read.'
-end
-
---- Result of validating a single anchor.
---- @class AnchorResult
---- @field anchor string  Original anchor reference (e.g. "5ab")
---- @field valid boolean  Whether the anchor resolved successfully
---- @field line integer?  Resolved line number (present even on stale-match failure; nil only on parse error)
---- @field msg string?  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
-
---- Batch-validate a list of anchors against file content.
---- Returns results for all anchors plus a collected list of stale mismatches.
---- @param file_lines string[]  1-indexed array of file lines
---- @param anchors_list string[]  List of anchor references like "5ab"
---- @return AnchorResult[] results  One result per anchor, in order
---- @return AnchorResult[] mismatches  Only the failed results (for error reporting)
-function M.validate_anchors(file_lines, anchors_list)
-    local results = {}
-    local mismatches = {}
-    for _, anchor in ipairs(anchors_list) do
-        local valid, line, msg = M.validate_anchor(file_lines, anchor)
-        local result = { anchor = anchor, valid = valid, line = line, msg = msg }
-        results[#results + 1] = result
-        if not valid then
-            mismatches[#mismatches + 1] = result
-        end
-    end
-    return results, mismatches
-end
-
 --- Apply anchor-based edits to file content.
 --- Takes raw file text, handles BOM, line-ending normalization, anchor validation,
 --- edit application, boundary checks, and line-ending restoration internally.
@@ -1139,7 +1139,7 @@ function M.apply_edits(file_text, edits)
         local repl_lines = edit.repl_lines or {}
 
         -- Batch-validate both anchors before proceeding
-        local results, mismatches = M.validate_anchors(file_lines, { start_anchor, end_anchor })
+        local results, mismatches = validate_anchors(file_lines, { start_anchor, end_anchor })
         local start_result = results[1]
         local end_result = results[2]
 

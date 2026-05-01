@@ -134,72 +134,77 @@ describe('anchors module', function()
         MiniTest.expect.equality(child.lua_get('_G._h3'), 'rd')
     end)
 
-    it('validate_anchor accepts valid anchor', function()
+    it('apply_edits accepts valid anchor', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            local lines = { "hello", "world" }
-            local hash1 = anchors.hash(1, lines[1])
-            local ok, ln = anchors.validate_anchor(lines, "1" .. hash1)
-            _G._ok, _G._ln = ok, ln
+            local text = "hello\nworld"
+            local start = anchors.hash(1, "hello")
+            local end_h = anchors.hash(2, "world")
+            local ok, result = pcall(anchors.apply_edits, text, {
+                { start_anchor = "1" .. start, end_anchor = "2" .. end_h, repl_lines = { "hi" } },
+            })
+            _G._ok = ok
         ]])
         MiniTest.expect.equality(child.lua_get('_G._ok'), true)
-        MiniTest.expect.equality(child.lua_get('_G._ln'), 1)
     end)
 
-    it('validate_anchor rejects stale anchor', function()
+    it('apply_edits rejects stale anchor', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            local lines = { "hello", "world" }
-            local ok, ln, err = anchors.validate_anchor(lines, "1zz")
+            local text = "hello\nworld"
+            local ok, err = pcall(anchors.apply_edits, text, {
+                { start_anchor = "1zz", end_anchor = "1zz", repl_lines = { "nope" } },
+            })
             _G._ok, _G._err = ok, err
         ]])
         MiniTest.expect.equality(child.lua_get('_G._ok'), false)
         MiniTest.expect.no_equality(child.lua_get('_G._err'):find('Stale'), nil)
     end)
 
-    it('validate_anchor rejects out-of-range line', function()
+    it('apply_edits rejects out-of-range line', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            local lines = { "hello" }
-            local ok, ln, err = anchors.validate_anchor(lines, "99ab")
+            local text = "hello"
+            local ok, err = pcall(anchors.apply_edits, text, {
+                { start_anchor = "99ab", end_anchor = "99ab", repl_lines = { "nope" } },
+            })
             _G._ok, _G._err = ok, err
         ]])
         MiniTest.expect.equality(child.lua_get('_G._ok'), false)
         MiniTest.expect.no_equality(child.lua_get('_G._err'):find('does not exist'), nil)
     end)
 
-    it('validate_anchors batch collects mismatches', function()
+    it('apply_edits reports stale when one of multiple edits is bad', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            local lines = { "hello", "world" }
-            local hash1 = anchors.hash(1, lines[1])
-            local results, mismatches = anchors.validate_anchors(lines, { "1" .. hash1, "1zz" })
-            _G._total = #results
-            _G._mismatch_count = #mismatches
-            _G._first_valid = results[1].valid
-            _G._second_valid = results[2].valid
+            local text = "hello\nworld"
+            local start = anchors.hash(1, "hello")
+            local ok, err = pcall(anchors.apply_edits, text, {
+                { start_anchor = "1" .. start, end_anchor = "1" .. start, repl_lines = { "hi" } },
+                { start_anchor = "2zz", end_anchor = "2zz", repl_lines = { "nope" } },
+            })
+            _G._ok, _G._err = ok, err
         ]])
-        MiniTest.expect.equality(child.lua_get('_G._total'), 2)
-        MiniTest.expect.equality(child.lua_get('_G._mismatch_count'), 1)
-        MiniTest.expect.equality(child.lua_get('_G._first_valid'), true)
-        MiniTest.expect.equality(child.lua_get('_G._second_valid'), false)
+        MiniTest.expect.equality(child.lua_get('_G._ok'), false)
+        MiniTest.expect.no_equality(child.lua_get('_G._err'):find('Stale'), nil)
     end)
 
-    it('parse_anchor_ref gives helpful error for hash-only input', function()
+    it('apply_edits gives helpful error for hash-only anchor input', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            _G._ok, _G._msg = pcall(function()
-                local _ = anchors.validate_anchor({}, 'ab')
-            end)
+            local text = "hello\nworld"
+            local ok, err = pcall(anchors.apply_edits, text, {
+                { start_anchor = "ab", end_anchor = "ab", repl_lines = { "nope" } },
+            })
+            _G._ok, _G._err = ok, err
         ]])
-        -- Should detect that 'ab' is just a 2-letter suffix without line number
         MiniTest.expect.equality(child.lua_get('_G._ok'), false)
-        MiniTest.expect.no_equality(child.lua_get('_G._msg'):find('2-letter suffix'), nil)
+        MiniTest.expect.no_equality(child.lua_get('_G._err'):find('2-letter suffix'), nil)
     end)
 
     it('strip_hashline strips prefixes when all lines have them', function()
