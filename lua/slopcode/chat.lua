@@ -220,10 +220,8 @@ function M.omnifunc(findstart, base)
             end
         end
     end
-    if #query >= 1 then
-        for _, f in ipairs(vim.fn.getcompletion(query, 'file')) do
-            items[#items + 1] = { word = '@' .. f, menu = 'file', abbr = f }
-        end
+    for _, f in ipairs(vim.fn.getcompletion(query, 'file')) do
+        items[#items + 1] = { word = '@' .. f, menu = 'file', abbr = f }
     end
     return #items > 0 and items or -3
 end
