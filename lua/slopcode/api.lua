@@ -99,7 +99,11 @@ function M.stream(messages, tools, opts)
             elseif state.finish_reason and state.finish_reason:find('^error') then
                 opts.on_error(state.finish_reason)
             elseif state.finish_reason == nil and state.content == '' and #state.tool_calls == 0 then
-                opts.on_error('unknown error: ' .. (result.stdout or ''))
+                local err_msg = vim.trim(sse_buffer or '')
+                if err_msg == '' then
+                    err_msg = 'curl response ended without content or finish reason'
+                end
+                opts.on_error(err_msg)
             else
                 opts.on_done({
                     content = state.content or '',
