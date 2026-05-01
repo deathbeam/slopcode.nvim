@@ -1,6 +1,6 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 
---- Hash-anchored editing: stateless hash computation and anchor validation.
+--- Hashline-anchored editing: stateless hash computation and anchor validation.
 ---
 --- When the LLM reads a file, each line gets a hash anchor prefix
 --- (e.g. "1ab|line content"). The LLM references anchors in edit calls
@@ -18,10 +18,6 @@
 --- Design based on oh-my-pi's hashline system:
 ---   https://github.com/can1357/oh-my-pi
 ---   https://dirac.run/posts/hash-anchors-myers-diff-single-token
----
---- 647 single-token BPE bigrams for hashline anchors. Every entry tokenizes
---- as exactly one token in modern BPE vocabularies (cl100k / o200k / Claude
---- family), so a hashline anchor built from one bigram is exactly 1 token.
 ---
 --- Order is stable — changing it would invalidate every saved anchor
 --- reference in transcripts and prompts.
@@ -71,6 +67,7 @@ local HASHLINE_BIGRAMS = {
     'bn',
     'bo',
     'bp',
+    'bq',
     'br',
     'bs',
     'bt',
@@ -194,6 +191,7 @@ local HASHLINE_BIGRAMS = {
     'gh',
     'gi',
     'gj',
+    'gk',
     'gl',
     'gm',
     'gn',
@@ -282,9 +280,11 @@ local HASHLINE_BIGRAMS = {
     'js',
     'jt',
     'ju',
+    'jv',
     'jw',
     'jx',
     'jy',
+    'jz',
     'ka',
     'kb',
     'kc',
@@ -301,6 +301,7 @@ local HASHLINE_BIGRAMS = {
     'kn',
     'ko',
     'kp',
+    'kq',
     'kr',
     'ks',
     'kt',
@@ -309,6 +310,7 @@ local HASHLINE_BIGRAMS = {
     'kw',
     'kx',
     'ky',
+    'kz',
     'la',
     'lb',
     'lc',
@@ -325,6 +327,7 @@ local HASHLINE_BIGRAMS = {
     'ln',
     'lo',
     'lp',
+    'lq',
     'lr',
     'ls',
     'lt',
@@ -376,6 +379,7 @@ local HASHLINE_BIGRAMS = {
     'nn',
     'no',
     'np',
+    'nq',
     'nr',
     'ns',
     'nt',
@@ -442,8 +446,12 @@ local HASHLINE_BIGRAMS = {
     'qc',
     'qd',
     'qe',
+    'qf',
+    'qg',
     'qh',
     'qi',
+    'qj',
+    'qk',
     'ql',
     'qm',
     'qn',
@@ -454,9 +462,11 @@ local HASHLINE_BIGRAMS = {
     'qs',
     'qt',
     'qu',
+    'qv',
     'qw',
     'qx',
     'qy',
+    'qz',
     'ra',
     'rb',
     'rc',
@@ -466,6 +476,7 @@ local HASHLINE_BIGRAMS = {
     'rg',
     'rh',
     'ri',
+    'rj',
     'rk',
     'rl',
     'rm',
@@ -524,6 +535,7 @@ local HASHLINE_BIGRAMS = {
     'tn',
     'to',
     'tp',
+    'tq',
     'tr',
     'ts',
     'tt',
@@ -601,6 +613,7 @@ local HASHLINE_BIGRAMS = {
     'wn',
     'wo',
     'wp',
+    'wq',
     'wr',
     'ws',
     'wt',
@@ -609,23 +622,30 @@ local HASHLINE_BIGRAMS = {
     'ww',
     'wx',
     'wy',
+    'wz',
     'xa',
     'xb',
     'xc',
     'xd',
     'xe',
     'xf',
+    'xg',
     'xh',
     'xi',
+    'xj',
+    'xk',
     'xl',
     'xm',
     'xn',
     'xo',
     'xp',
+    'xq',
     'xr',
     'xs',
     'xt',
     'xu',
+    'xv',
+    'xw',
     'xx',
     'xy',
     'xz',
@@ -645,6 +665,7 @@ local HASHLINE_BIGRAMS = {
     'yn',
     'yo',
     'yp',
+    'yq',
     'yr',
     'ys',
     'yt',
@@ -663,21 +684,25 @@ local HASHLINE_BIGRAMS = {
     'zg',
     'zh',
     'zi',
+    'zj',
     'zk',
     'zl',
     'zm',
     'zn',
     'zo',
     'zp',
+    'zq',
     'zr',
     'zs',
     'zt',
     'zu',
+    'zv',
     'zw',
     'zx',
     'zy',
     'zz',
 }
+
 local HASHLINE_BIGRAMS_COUNT = #HASHLINE_BIGRAMS
 
 --- O(1) lookup: is a 2-char string a valid bigram?

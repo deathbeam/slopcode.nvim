@@ -12,7 +12,7 @@ inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the 
 ## why
 
 - **game-like main loop** — push events, drain on a 16ms tick. feels like a game engine for chat, because why not
-- **hash-anchored edits** — stateless line hashing so the LLM targets edits without re-reading entire files ([see post about it here](https://dirac.run/posts/hash-anchors-myers-diff-single-token))
+- **hashline-anchored edits** — stateless line hashing so the LLM references anchors in edit calls instead of repeating old code
 - **minimal** — ~4k lines of Lua. roughly 10× smaller than other AI slop generators. no framework, no bloat, no opinions about your workflow. just a loop and some tools
 - **native** — prompt buffer for input, folds for output, winbar for model name and spinner, busy indicator in the statusline, markdown for visuals. looks like neovim because it is neovim
 - **memory compaction** — auto-summarizes old messages at 75% context window so long sessions don't explode
