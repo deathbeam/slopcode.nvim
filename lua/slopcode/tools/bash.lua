@@ -55,7 +55,7 @@ return {
 
         -- Tail truncation for large output
         local lines = vim.split(output, '\n', { plain = true })
-        local kept, notice = text.tail(lines, 2000)
+        local kept, notice = text.tail(lines, 1000)
 
         local final = table.concat(kept, '\n')
 
