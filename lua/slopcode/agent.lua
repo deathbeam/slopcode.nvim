@@ -131,7 +131,6 @@ function M.abort()
 end
 
 --- Reset conversation state.
---- @async
 function M.reset()
     for k in pairs(_messages) do
         _messages[k] = nil

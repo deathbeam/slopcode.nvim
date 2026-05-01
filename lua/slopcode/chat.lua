@@ -156,17 +156,17 @@ function M.send(user_text)
         agent.push(user_text)
         return
     end
+
+    M.open()
     async.run(agent.run, user_text)
 end
 
 --- Reset the conversation history and redraw the buffer.
 function M.reset()
-    async.run(function()
-        agent.reset()
-        loop.redraw(agent.messages())
-        loop.push({ type = 'status', content = 'Conversation reset' })
-        loop.drain()
-    end)
+    agent.reset()
+    loop.redraw(agent.messages())
+    loop.push({ type = 'status', content = 'Conversation reset' })
+    loop.drain()
 end
 
 --- Save the conversation messages to a JSON file.
@@ -188,15 +188,6 @@ end
 --- Abort the current streaming agent run.
 function M.abort()
     agent.abort()
-end
-
---- Open the chat window and send a message.
---- @param text string
-function M.ask(text)
-    M.open()
-    vim.schedule(function()
-        M.send(text)
-    end)
 end
 
 --- Omnifunc for @path completion in the prompt buffer.
