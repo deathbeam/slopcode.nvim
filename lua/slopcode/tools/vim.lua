@@ -6,18 +6,17 @@ return {
     promptSnippet = 'Execute a Vim/Neovim ex-command',
 
     promptGuidelines = {
-        'Use :help <topic> for docs, :lua for Lua API calls, :ls for buffers, etc.',
+        'Prefer the vim tool over bash for anything Vim/Neovim-specific (help docs, commands, settings, keymaps, etc.)',
     },
 
-    description = 'Execute a Vim/Neovim ex-command and return its output, with execution time and truncation for large output.',
-
+    description = 'Execute a Vim/Neovim ex-command and return its output.',
     parameters = {
         type = 'object',
         properties = {
             label = { type = 'string', description = 'Short summary of what this tool call does (shown to user)' },
             command = {
                 type = 'string',
-                description = 'The Vim/Neovim ex-command to execute. Omit the leading colon.',
+                description = 'The Vim/Neovim ex-command to execute. Omit the leading colon. Examples: "help fold" for docs, "lua print(vim.o.foldmethod)" for options, "set foldmethod?" to check a value, "ls" for buffers.',
             },
         },
         required = { 'label', 'command' },
