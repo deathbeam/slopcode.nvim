@@ -36,7 +36,7 @@ local function create_ui()
 
     -- Attach the event loop and status module
     loop.attach(buf, win)
-    status.subheader(config.model)
+    status.subheader1(config.model)
 
     vim.schedule(function()
         vim.bo[buf].buftype = 'prompt'
@@ -241,7 +241,7 @@ function M.model()
         local _, idx = async.await(3, vim.ui.select, labels, { prompt = 'Select model: ' })
         if idx and models[idx] then
             config.model = models[idx].key
-            status.subheader(models[idx].key)
+            status.subheader1(models[idx].key)
             status.notify('Model: ' .. models[idx].key, 'info', 3000)
         end
     end)

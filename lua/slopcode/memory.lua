@@ -74,6 +74,10 @@ local function estimate_messages_tokens(messages)
     return math.floor(total)
 end
 
+function M.estimate(messages)
+    return estimate_messages_tokens(messages)
+end
+
 --- Compact messages when they exceed the context window.
 --- @async
 --- @param messages table[]

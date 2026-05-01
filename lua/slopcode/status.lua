@@ -19,13 +19,22 @@ local _busy = false
 --- @type string
 local _header = ''
 --- @type string
-local _subheader = ''
+local _subheader1 = ''
+--- @type string
+local _subheader2 = ''
 --- @type string
 local _busy_text = ''
 --- @type { msg: string, expires: integer }?
 local _notify = nil
 --- @type vim.uv.Timer?
 local _notify_timer = nil
+
+--- Escape % signs for winbar.
+--- @param str string
+--- @return string
+local function esc(str)
+    return str:gsub('%%', '%%%%')
+end
 
 local function tick()
     if not (_buf and vim.api.nvim_buf_is_valid(_buf)) then
@@ -51,33 +60,27 @@ end
 --- Resolve function (called by winbar %! expression).
 --- @return string
 function M.resolve()
-    --- @param str string
-    --- @return string
-    local function esc_status(str)
-        return str:gsub('%%', '%%%%')
+    local title = _header
+    local title_type = 'Title'
+    if _notify and (_notify.expires - vim.uv.now() > 0) then
+        title = _notify.msg
+        title_type = 'WarningMsg'
+    elseif _busy then
+        title = _busy_text
+        title_type = 'Comment'
     end
 
-    if _busy then
-        local s = '%#Comment# ' .. _busy_text .. ' %*'
-        if _subheader ~= '' then
-            s = s .. '%=%#NonText# ' .. esc_status(_subheader) .. ' %*'
-        end
-        return s
-    elseif _notify then
-        local remaining = _notify.expires - vim.uv.now()
-        if remaining > 0 then
-            return '%#WarningMsg# ' .. esc_status(_notify.msg) .. ' %*'
-        else
-            _notify = nil
-        end
+    local subheader = esc(_subheader1)
+    if _subheader2 ~= '' then
+        subheader = subheader .. ' ' .. esc(_subheader2)
     end
 
-    local s = '%#Title# ' .. _header .. ' %*'
-    if _subheader ~= '' then
-        s = s .. '%=%#NonText# ' .. esc_status(_subheader) .. ' %*'
-    end
-
-    return s
+    return '%#'
+        .. title_type
+        .. '# '
+        .. esc(title)
+        .. ' %*'
+        .. (subheader ~= '' and ('%=%#NonText# ' .. subheader .. ' %*') or '')
 end
 
 --- Attach status module to a buffer/window pair.
@@ -89,7 +92,8 @@ function M.attach(buf, win)
     _busy = false
     _busy_text = ''
     _header = ''
-    _subheader = ''
+    _subheader1 = ''
+    _subheader2 = ''
     _notify = nil
 
     if win and vim.api.nvim_win_is_valid(win) then
@@ -115,7 +119,8 @@ function M.detach()
     _busy = false
     _busy_text = ''
     _header = ''
-    _subheader = ''
+    _subheader1 = ''
+    _subheader2 = ''
     _notify = nil
 end
 
@@ -191,17 +196,21 @@ function M.notify(msg, level, ms)
     )
 end
 
---- Update the header text (e.g. plugin name) in the winbar.
---- @param name string
-function M.header(name)
-    _header = name or ''
+--- @param text string
+function M.header(text)
+    _header = text or ''
     tick()
 end
 
---- Update the sub header text (e.g. model name) in the winbar.
---- @param name string
-function M.subheader(name)
-    _subheader = name or ''
+--- @param text string
+function M.subheader1(text)
+    _subheader1 = text or ''
+    tick()
+end
+
+--- @param text string
+function M.subheader2(text)
+    _subheader2 = text or ''
     tick()
 end
 

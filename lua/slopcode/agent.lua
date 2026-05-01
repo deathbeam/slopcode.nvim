@@ -21,6 +21,8 @@ local _job = nil
 local _aborted = false
 --- @type string[]  queued user messages to inject before next turn
 local _queue = {}
+--- @type { input: integer, output: integer, cache_read: integer, cache_write: integer }
+local _usage = { input = 0, output = 0, cache_read = 0, cache_write = 0 }
 
 --- @async
 --- Stream one turn from the API.
@@ -64,6 +66,17 @@ local function stream_turn(model, parser)
                 else
                     r.content = response_text
                     r.reasoning = reasoning_text
+                    -- Accumulate usage from the result
+                    if r.usage then
+                        _usage.input = _usage.input
+                            + (r.usage.input_tokens or r.usage.prompt_tokens or r.usage.input or 0)
+                        _usage.output = _usage.output
+                            + (r.usage.output_tokens or r.usage.completion_tokens or r.usage.output or 0)
+                        _usage.cache_read = _usage.cache_read
+                            + (r.usage.cache_read_input_tokens or r.usage.cache_read or 0)
+                        _usage.cache_write = _usage.cache_write
+                            + (r.usage.cache_creation_input_tokens or r.usage.cache_write or 0)
+                    end
                     resolve(r)
                 end
             end,
@@ -129,6 +142,9 @@ function M.reset()
     for k in pairs(_queue) do
         _queue[k] = nil
     end
+    for k in pairs(_usage) do
+        _usage[k] = nil
+    end
     prompt.reload()
 end
 
@@ -193,6 +209,17 @@ function M.run(user_text)
 
             -- Stream one turn
             local result = stream_turn(model, parser)
+
+            -- Update usage
+            loop.push({
+                type = 'usage',
+                input = _usage.input,
+                output = _usage.output,
+                cache_read = _usage.cache_read,
+                cache_write = _usage.cache_write,
+                pct = model.contextWindow and (memory.estimate(_messages) / model.contextWindow * 100) or 0,
+                window = model.contextWindow or 128000,
+            })
 
             -- Handle result
             if result.aborted then

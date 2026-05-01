@@ -20,7 +20,7 @@ local function attach_loop()
         local buf = vim.api.nvim_create_buf(true, true)
         local win = vim.api.nvim_open_win(buf, true, { split = 'right' })
         require('slopcode.loop').attach(buf, win)
-        require('slopcode.status').subheader('test-model')
+        require('slopcode.status').subheader1('test-model')
     ]])
 end
 

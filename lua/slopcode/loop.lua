@@ -108,6 +108,52 @@ local function ensure_blank_line(buf)
     block_append(buf, '\n')
 end
 
+--- Format cumulative token usage into a display string for the winbar.
+--- @param usage table
+--- @return string
+local function format_usage(usage)
+    --- @param n integer
+    --- @return string
+    local function format_tokens(n)
+        if n < 1000 then
+            return tostring(n)
+        end
+        if n < 10000 then
+            return string.format('%.1fk', n / 1000)
+        end
+        if n < 1000000 then
+            return math.floor(n / 1000) .. 'k'
+        end
+        if n < 10000000 then
+            return string.format('%.1fM', n / 1000000)
+        end
+        return math.floor(n / 1000000) .. 'M'
+    end
+
+    local parts = {}
+    if usage.input > 0 then
+        parts[#parts + 1] = '↑' .. format_tokens(usage.input)
+    end
+    if usage.output > 0 then
+        parts[#parts + 1] = '↓' .. format_tokens(usage.output)
+    end
+    if usage.cache_read > 0 then
+        parts[#parts + 1] = 'R' .. format_tokens(usage.cache_read)
+    end
+    if usage.cache_write > 0 then
+        parts[#parts + 1] = 'W' .. format_tokens(usage.cache_write)
+    end
+    if usage.window > 0 then
+        local pct_str = string.format('%.1f', usage.pct) .. '%'
+        local ctx_str = format_tokens(usage.window)
+        parts[#parts + 1] = pct_str .. '/' .. ctx_str
+    end
+    if #parts > 0 then
+        return table.concat(parts, ' ')
+    end
+    return ''
+end
+
 --- Apply fold ranges to the window.
 --- @param win integer?
 --- @param folds table[]  array of {start_line, end_line}
@@ -182,6 +228,8 @@ local function dispatch(event)
     elseif t == 'status' then
         ensure_blank_line(_buf)
         block_append(_buf, '[!] ' .. event.content .. '\n')
+    elseif t == 'usage' then
+        status.subheader2(format_usage(event))
     elseif t == 'agent_done' then
         status.stop()
     end
