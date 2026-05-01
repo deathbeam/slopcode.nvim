@@ -22,6 +22,8 @@
 --- Order is stable — changing it would invalidate every saved anchor
 --- reference in transcripts and prompts.
 
+local M = {}
+
 local fs = require('slopcode.utils.fs')
 
 local HASHLINE_BIGRAMS = {
@@ -704,12 +706,18 @@ local HASHLINE_BIGRAMS = {
 }
 
 local HASHLINE_BIGRAMS_COUNT = #HASHLINE_BIGRAMS
-
---- O(1) lookup: is a 2-char string a valid bigram?
 local BIGRAM_SET = {}
 for _, bg in ipairs(HASHLINE_BIGRAMS) do
     BIGRAM_SET[bg] = true
 end
+local RE_SIGNIFICANT = '[%a%d]'
+local SEPARATOR = '|'
+local HASHLINE_PREFIX_RE = '^%s*[%+>%-]*%s*%d+%l%l[|#:]'
+local HASHLINE_DIFF_PLUS_RE = '^%s*%+%s*%d+%l%l[|#:]'
+local DIFF_PLUS_RE = '^%+[^%+]'
+local TRUNCATION_NOTICE_RE = '^%[.*lines?'
+local REBASE_WINDOW = 5
+local MISMATCH_CONTEXT = 2
 
 --- FNV-1a 32-bit hash.
 --- @param s string
@@ -723,9 +731,6 @@ local function fnv1a(s, seed)
     end
     return h
 end
-
---- Has at least one alphanumeric character?
-local RE_SIGNIFICANT = '[%a%d]'
 
 --- After stripping structural chars, is nothing left?
 local function is_structural_line(trimmed)
@@ -767,60 +772,6 @@ local function normalize_unicode(s)
     return s
 end
 
---- Compute the 2-character BPE bigram hash for a line at a given number.
---- Structural lines (whitespace + braces only) get ordinal suffixes.
---- Non-significant lines (no alphanumeric) are seeded with line number.
---- @param idx integer  1-indexed line number
---- @param line string  line content
---- @return string hash  2-char bigram from HASHLINE_BIGRAMS
-local function hash(idx, line)
-    local trimmed = line:gsub('%s+$', ''):gsub('\r', '')
-    if is_structural_line(trimmed) then
-        return structural_bigram(idx)
-    end
-    local seed = 0
-    if not trimmed:find(RE_SIGNIFICANT) then
-        seed = idx
-    end
-    return HASHLINE_BIGRAMS[(fnv1a(trimmed, seed) % HASHLINE_BIGRAMS_COUNT) + 1]
-end
-
---- Content separator between anchor tag and line text.
-local SEPARATOR = '|'
-
---- Format a single line with its hash anchor prefix.
---- @param idx integer  1-indexed line number
---- @param line string  raw line content
---- @return string  e.g. "5ab|local x = 1"
-local function format_line(idx, line)
-    return string.format('%d%s%c%s', idx, hash(idx, line), string.byte(SEPARATOR), line)
-end
-
---- Regex matching a hashline display prefix at the start of a line.
---- Matches optional markers (>>>, >>, +, -), whitespace, digits + 2-letter hash + | or :.
-local HASHLINE_PREFIX_RE = '^%s*[%+>%-]*%s*%d+%l%l[|#:]'
-
---- Regex matching a diff-style `+` prefix on a hashline.
-local HASHLINE_DIFF_PLUS_RE = '^%s*%+%s*%d+%l%l[|#:]'
-
---- Regex matching a diff-style `+` prefix (without hashline anchor).
-local DIFF_PLUS_RE = '^%+[^%+]'
-
---- Regex matching a read truncation notice (e.g. [Showing lines 1-20 of 50] or [5 more lines]).
-local TRUNCATION_NOTICE_RE = '^%[.*lines?'
-
---- Check if replacement text contains hashline display prefixes (LLM mistake).
---- @param replacement string
---- @return boolean
-local function is_hashline(replacement)
-    for line in replacement:gmatch('[^\n]+') do
-        if line:match(HASHLINE_PREFIX_RE) then
-            return true
-        end
-    end
-    return false
-end
-
 --- Strip a hashline display prefix from a single line, repeatedly.
 --- Handles cases like `>>> 5ab|x` or `+ 5ab|x` or nested prefixes.
 --- @param line string
@@ -832,66 +783,6 @@ local function strip_one_prefix(line)
         line = line:gsub(HASHLINE_PREFIX_RE, '')
     until line == prev
     return line
-end
-
---- Strip hashline display prefixes from an array of lines.
---- Mode 1: If ALL non-empty lines have hashline prefixes, strip them all.
---- Mode 2: If lines have diff `+` prefixes with hashline anchors, strip those.
---- Mode 3: If most lines have diff `+` prefixes (no anchors), strip those.
---- Also filters read truncation notices like [5 more lines].
---- @param lines string[]  Array of lines to strip
---- @return string[]  Lines with prefixes removed where applicable
-local function strip_hashline(lines)
-    local nonEmpty = 0
-    local hashPrefixed = 0
-    local diffPlusHashPrefixed = 0
-    local diffPlus = 0
-    for _, line in ipairs(lines) do
-        if line ~= '' and not line:match(TRUNCATION_NOTICE_RE) then
-            nonEmpty = nonEmpty + 1
-            if line:match(HASHLINE_PREFIX_RE) then
-                hashPrefixed = hashPrefixed + 1
-            end
-            if line:match(HASHLINE_DIFF_PLUS_RE) then
-                diffPlusHashPrefixed = diffPlusHashPrefixed + 1
-            end
-            if line:match(DIFF_PLUS_RE) then
-                diffPlus = diffPlus + 1
-            end
-        end
-    end
-    if nonEmpty == 0 then
-        return lines
-    end
-
-    -- Mode 1: All non-empty lines have hashline prefixes → strip them all
-    local stripAll = hashPrefixed > 0 and hashPrefixed == nonEmpty
-    -- Mode 2: Some lines have + with hashline anchors → strip those specifically
-    -- Mode 3: Most lines have diff + prefixes (without anchors) → strip + from all
-    local stripDiffPlus = not stripAll and diffPlusHashPrefixed == 0 and diffPlus > 0 and diffPlus >= nonEmpty * 0.5
-
-    if not stripAll and not stripDiffPlus then
-        return lines
-    end
-
-    local result = {}
-    for _, line in ipairs(lines) do
-        -- Filter out read truncation notices
-        if line:match(TRUNCATION_NOTICE_RE) then
-            -- skip
-        elseif line == '' then
-            result[#result + 1] = line
-        elseif stripAll then
-            result[#result + 1] = strip_one_prefix(line)
-        elseif stripDiffPlus then
-            -- Strip leading + and optional space (diff-style)
-            line = line:gsub('^%+ ?', '')
-            result[#result + 1] = line
-        else
-            result[#result + 1] = line
-        end
-    end
-    return result
 end
 
 --- Parse a hashline anchor reference (e.g. "5ab" or "5ab|content").
@@ -935,9 +826,6 @@ local function parse_anchor_ref(ref)
     return line, hash_str
 end
 
---- Default search window for auto-rebase (lines on each side).
-local REBASE_WINDOW = 5
-
 --- Try to find the requested hash within ±window lines of the anchor line.
 --- Skips the anchor line itself (caller already knows it doesn't match).
 --- Returns the new line number when exactly one nearby line matches;
@@ -954,7 +842,7 @@ local function try_rebase_anchor(file_lines, anchor_line, hash_str, window)
     local found = nil
     for i = lo, hi do
         if i ~= anchor_line then
-            if hash(i, file_lines[i]) == hash_str then
+            if M.hash(i, file_lines[i]) == hash_str then
                 if found ~= nil then
                     return nil -- ambiguous: more than one match
                 end
@@ -964,77 +852,6 @@ local function try_rebase_anchor(file_lines, anchor_line, hash_str, window)
     end
     return found
 end
-
---- Validate an anchor against file content.
---- Tries exact match first, then fuzzy Unicode normalization,
---- then auto-rebase (search ±REBASE_WINDOW lines for matching hash).
---- Always returns the parsed line number (even on failure) so callers can
---- use it for error context without re-parsing.
---- @param file_lines string[]  1-indexed array of file lines
---- @param anchor string  anchor reference like "5ab"
---- @return boolean valid
---- @return integer? line_num  resolved line number (may differ if rebased); nil only on parse error
---- @return string? msg  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
-local function validate_anchor(file_lines, anchor)
-    local line, hash_str = parse_anchor_ref(anchor)
-    if line > #file_lines then
-        return false, line, 'Line ' .. line .. ' does not exist (file has ' .. #file_lines .. ' lines).'
-    end
-    local actual = hash(line, file_lines[line])
-    if actual == hash_str then
-        return true, line
-    end
-    -- Fuzzy: try with Unicode normalization on the file line
-    local normalized = normalize_unicode(file_lines[line])
-    local fuzzy_hash = hash(line, normalized)
-    if fuzzy_hash == hash_str then
-        return true, line, 'FUZZY_MATCH'
-    end
-    -- Auto-rebase: search ±REBASE_WINDOW lines for a matching hash
-    local rebased = try_rebase_anchor(file_lines, line, hash_str)
-    if rebased then
-        return true, rebased, 'REBASED'
-    end
-    return false,
-        line,
-        'Stale anchor: line '
-            .. line
-            .. ' hash is '
-            .. actual
-            .. ', not '
-            .. hash_str
-            .. '. The file has changed since your last read.'
-end
-
---- Result of validating a single anchor.
---- @class AnchorResult
---- @field anchor string  Original anchor reference (e.g. "5ab")
---- @field valid boolean  Whether the anchor resolved successfully
---- @field line integer?  Resolved line number (present even on stale-match failure; nil only on parse error)
---- @field msg string?  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
-
---- Batch-validate a list of anchors against file content.
---- Returns results for all anchors plus a collected list of stale mismatches.
---- @param file_lines string[]  1-indexed array of file lines
---- @param anchors_list string[]  List of anchor references like "5ab"
---- @return AnchorResult[] results  One result per anchor, in order
---- @return AnchorResult[] mismatches  Only the failed results (for error reporting)
-local function validate_anchors(file_lines, anchors_list)
-    local results = {}
-    local mismatches = {}
-    for _, anchor in ipairs(anchors_list) do
-        local valid, line, msg = validate_anchor(file_lines, anchor)
-        local result = { anchor = anchor, valid = valid, line = line, msg = msg }
-        results[#results + 1] = result
-        if not valid then
-            mismatches[#mismatches + 1] = result
-        end
-    end
-    return results, mismatches
-end
-
---- Number of context lines shown above/below each stale anchor.
-local MISMATCH_CONTEXT = 2
 
 --- Format a stale-anchor recovery message with current anchors for retry.
 --- Shows MISMATCH_CONTEXT lines around each mismatched anchor, with `>>>` marker
@@ -1052,7 +869,7 @@ local function format_mismatches(file_lines, mismatches)
             local end_line = math.min(#file_lines, line + MISMATCH_CONTEXT)
             for i = start, end_line do
                 local prefix = (i == line) and '>>> ' or '    '
-                parts[#parts + 1] = prefix .. format_line(i, file_lines[i])
+                parts[#parts + 1] = prefix .. M.format(i, file_lines[i])
             end
         end
     end
@@ -1138,6 +955,160 @@ local function changed_range(old_lines, new_lines)
     return first_changed, last_changed
 end
 
+--- Compute the 2-character BPE bigram hash for a line at a given number.
+--- Structural lines (whitespace + braces only) get ordinal suffixes.
+--- Non-significant lines (no alphanumeric) are seeded with line number.
+--- @param idx integer  1-indexed line number
+--- @param line string  line content
+--- @return string hash  2-char bigram from HASHLINE_BIGRAMS
+function M.hash(idx, line)
+    local trimmed = line:gsub('%s+$', ''):gsub('\r', '')
+    if is_structural_line(trimmed) then
+        return structural_bigram(idx)
+    end
+    local seed = 0
+    if not trimmed:find(RE_SIGNIFICANT) then
+        seed = idx
+    end
+    return HASHLINE_BIGRAMS[(fnv1a(trimmed, seed) % HASHLINE_BIGRAMS_COUNT) + 1]
+end
+
+--- Format a single line with its hash anchor prefix.
+--- @param idx integer  1-indexed line number
+--- @param line string  raw line content
+--- @return string  e.g. "5ab|local x = 1"
+function M.format(idx, line)
+    return string.format('%d%s%c%s', idx, M.hash(idx, line), string.byte(SEPARATOR), line)
+end
+
+--- Strip hashline display prefixes from an array of lines.
+--- Mode 1: If ALL non-empty lines have hashline prefixes, strip them all.
+--- Mode 2: If lines have diff `+` prefixes with hashline anchors, strip those.
+--- Mode 3: If most lines have diff `+` prefixes (no anchors), strip those.
+--- Also filters read truncation notices like [5 more lines].
+--- @param lines string[]  Array of lines to strip
+--- @return string[]  Lines with prefixes removed where applicable
+function M.strip_hashline(lines)
+    local nonEmpty = 0
+    local hashPrefixed = 0
+    local diffPlusHashPrefixed = 0
+    local diffPlus = 0
+    for _, line in ipairs(lines) do
+        if line ~= '' and not line:match(TRUNCATION_NOTICE_RE) then
+            nonEmpty = nonEmpty + 1
+            if line:match(HASHLINE_PREFIX_RE) then
+                hashPrefixed = hashPrefixed + 1
+            end
+            if line:match(HASHLINE_DIFF_PLUS_RE) then
+                diffPlusHashPrefixed = diffPlusHashPrefixed + 1
+            end
+            if line:match(DIFF_PLUS_RE) then
+                diffPlus = diffPlus + 1
+            end
+        end
+    end
+    if nonEmpty == 0 then
+        return lines
+    end
+
+    -- Mode 1: All non-empty lines have hashline prefixes → strip them all
+    local stripAll = hashPrefixed > 0 and hashPrefixed == nonEmpty
+    -- Mode 2: Some lines have + with hashline anchors → strip those specifically
+    -- Mode 3: Most lines have diff + prefixes (without anchors) → strip + from all
+    local stripDiffPlus = not stripAll and diffPlusHashPrefixed == 0 and diffPlus > 0 and diffPlus >= nonEmpty * 0.5
+
+    if not stripAll and not stripDiffPlus then
+        return lines
+    end
+
+    local result = {}
+    for _, line in ipairs(lines) do
+        -- Filter out read truncation notices
+        if line:match(TRUNCATION_NOTICE_RE) then
+            -- skip
+        elseif line == '' then
+            result[#result + 1] = line
+        elseif stripAll then
+            result[#result + 1] = strip_one_prefix(line)
+        elseif stripDiffPlus then
+            -- Strip leading + and optional space (diff-style)
+            line = line:gsub('^%+ ?', '')
+            result[#result + 1] = line
+        else
+            result[#result + 1] = line
+        end
+    end
+    return result
+end
+
+--- Validate an anchor against file content.
+--- Tries exact match first, then fuzzy Unicode normalization,
+--- then auto-rebase (search ±REBASE_WINDOW lines for matching hash).
+--- Always returns the parsed line number (even on failure) so callers can
+--- use it for error context without re-parsing.
+--- @param file_lines string[]  1-indexed array of file lines
+--- @param anchor string  anchor reference like "5ab"
+--- @return boolean valid
+--- @return integer? line_num  resolved line number (may differ if rebased); nil only on parse error
+--- @return string? msg  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
+function M.validate_anchor(file_lines, anchor)
+    local line, hash_str = parse_anchor_ref(anchor)
+    if line > #file_lines then
+        return false, line, 'Line ' .. line .. ' does not exist (file has ' .. #file_lines .. ' lines).'
+    end
+    local actual = M.hash(line, file_lines[line])
+    if actual == hash_str then
+        return true, line
+    end
+    -- Fuzzy: try with Unicode normalization on the file line
+    local normalized = normalize_unicode(file_lines[line])
+    local fuzzy_hash = M.hash(line, normalized)
+    if fuzzy_hash == hash_str then
+        return true, line, 'FUZZY_MATCH'
+    end
+    -- Auto-rebase: search ±REBASE_WINDOW lines for a matching hash
+    local rebased = try_rebase_anchor(file_lines, line, hash_str)
+    if rebased then
+        return true, rebased, 'REBASED'
+    end
+    return false,
+        line,
+        'Stale anchor: line '
+            .. line
+            .. ' hash is '
+            .. actual
+            .. ', not '
+            .. hash_str
+            .. '. The file has changed since your last read.'
+end
+
+--- Result of validating a single anchor.
+--- @class AnchorResult
+--- @field anchor string  Original anchor reference (e.g. "5ab")
+--- @field valid boolean  Whether the anchor resolved successfully
+--- @field line integer?  Resolved line number (present even on stale-match failure; nil only on parse error)
+--- @field msg string?  nil on exact match; "FUZZY_MATCH" or "REBASED" on soft success; error message on failure
+
+--- Batch-validate a list of anchors against file content.
+--- Returns results for all anchors plus a collected list of stale mismatches.
+--- @param file_lines string[]  1-indexed array of file lines
+--- @param anchors_list string[]  List of anchor references like "5ab"
+--- @return AnchorResult[] results  One result per anchor, in order
+--- @return AnchorResult[] mismatches  Only the failed results (for error reporting)
+function M.validate_anchors(file_lines, anchors_list)
+    local results = {}
+    local mismatches = {}
+    for _, anchor in ipairs(anchors_list) do
+        local valid, line, msg = M.validate_anchor(file_lines, anchor)
+        local result = { anchor = anchor, valid = valid, line = line, msg = msg }
+        results[#results + 1] = result
+        if not valid then
+            mismatches[#mismatches + 1] = result
+        end
+    end
+    return results, mismatches
+end
+
 --- Apply anchor-based edits to file content.
 --- Takes raw file text, handles BOM, line-ending normalization, anchor validation,
 --- edit application, boundary checks, and line-ending restoration internally.
@@ -1145,7 +1116,7 @@ end
 --- @param file_text string Raw file content (may have BOM, CRLF, etc.)
 --- @param edits table[] Each edit: { start_anchor: string, end_anchor: string, repl_lines: string[] }
 --- @return table result { text: string, lines: string[], first_changed: integer?, last_changed: integer?, warnings: string[] }
-local function apply_edits(file_text, edits)
+function M.apply_edits(file_text, edits)
     if not edits or #edits == 0 then
         error('edits must contain at least one replacement.', 0)
     end
@@ -1168,7 +1139,7 @@ local function apply_edits(file_text, edits)
         local repl_lines = edit.repl_lines or {}
 
         -- Batch-validate both anchors before proceeding
-        local results, mismatches = validate_anchors(file_lines, { start_anchor, end_anchor })
+        local results, mismatches = M.validate_anchors(file_lines, { start_anchor, end_anchor })
         local start_result = results[1]
         local end_result = results[2]
 
@@ -1188,7 +1159,7 @@ local function apply_edits(file_text, edits)
                 .. start_anchor
                 .. ' → '
                 .. start_line
-                .. hash(start_line, file_lines[start_line])
+                .. M.hash(start_line, file_lines[start_line])
                 .. ' (line shifted within ±'
                 .. REBASE_WINDOW
                 .. '; hash matched)'
@@ -1202,7 +1173,7 @@ local function apply_edits(file_text, edits)
                 .. end_anchor
                 .. ' → '
                 .. end_line
-                .. hash(end_line, file_lines[end_line])
+                .. M.hash(end_line, file_lines[end_line])
                 .. ' (line shifted within ±'
                 .. REBASE_WINDOW
                 .. '; hash matched)'
@@ -1293,12 +1264,4 @@ local function apply_edits(file_text, edits)
     }
 end
 
-return {
-    hash = hash,
-    format_line = format_line,
-    is_hashline = is_hashline,
-    strip_hashline = strip_hashline,
-    validate_anchor = validate_anchor,
-    validate_anchors = validate_anchors,
-    apply_edits = apply_edits,
-}
+return M

@@ -56,7 +56,7 @@ return {
         -- Format lines with hash anchors
         local out = {}
         for i = start_line, end_line do
-            out[#out + 1] = anchors.format_line(i, lines[i])
+            out[#out + 1] = anchors.format(i, lines[i])
         end
 
         -- Truncate if needed

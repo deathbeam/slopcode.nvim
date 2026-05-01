@@ -105,11 +105,11 @@ describe('anchors module', function()
         MiniTest.expect.equality(child.lua_get('_G._diff'), true)
     end)
 
-    it('format_line produces LINETAG|content format', function()
+    it('format produces LINETAG|content format', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            local formatted = anchors.format_line(5, "local x = 1")
+            local formatted = anchors.format(5, "local x = 1")
             _G._formatted = formatted
         ]])
         local formatted = child.lua_get('_G._formatted')
@@ -200,19 +200,6 @@ describe('anchors module', function()
         -- Should detect that 'ab' is just a 2-letter suffix without line number
         MiniTest.expect.equality(child.lua_get('_G._ok'), false)
         MiniTest.expect.no_equality(child.lua_get('_G._msg'):find('2-letter suffix'), nil)
-    end)
-
-    it('is_hashline detects hashline prefixes in replacement', function()
-        load_config()
-        child.lua([[
-            local anchors = require('slopcode.anchors')
-            _G._r1 = anchors.is_hashline('3ab|hello')
-            _G._r2 = anchors.is_hashline('hello')
-            _G._r3 = anchors.is_hashline('1ab|x\n2cd|y')
-        ]])
-        MiniTest.expect.equality(child.lua_get('_G._r1'), true)
-        MiniTest.expect.equality(child.lua_get('_G._r2'), false)
-        MiniTest.expect.equality(child.lua_get('_G._r3'), true)
     end)
 
     it('strip_hashline strips prefixes when all lines have them', function()

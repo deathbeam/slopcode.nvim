@@ -26,7 +26,7 @@ local function edit_response(new_lines, first_changed, last_changed)
 
     local out = {}
     for i = start, end_line do
-        out[#out + 1] = anchors.format_line(i, new_lines[i])
+        out[#out + 1] = anchors.format(i, new_lines[i])
     end
     return '--- Anchors ' .. start .. '-' .. end_line .. ' ---\n' .. table.concat(out, '\n')
 end
@@ -112,10 +112,9 @@ return {
             else
                 repl_lines = {}
             end
+
             -- Strip hashline display prefixes from replacement lines (LLM mistake)
-            if #repl_lines > 0 then
-                repl_lines = anchors.strip_hashline(repl_lines)
-            end
+            repl_lines = anchors.strip_hashline(repl_lines)
             normalized_edits[#normalized_edits + 1] = {
                 start_anchor = edit.start_anchor,
                 end_anchor = edit.end_anchor,
