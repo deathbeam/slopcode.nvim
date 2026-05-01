@@ -45,7 +45,9 @@ return {
         local stdout = result.stdout or ''
         local stderr = result.stderr or ''
         local output = stdout .. stderr
-        output = vim.trim(output)
+
+        -- trim and strip ANSI color codes
+        output = vim.trim(output):gsub('\x1b%[[0-9;mK]+', '')
 
         if result.code ~= 0 and result.code ~= nil then
             error('(exit ' .. result.code .. '): ' .. output, 0)
