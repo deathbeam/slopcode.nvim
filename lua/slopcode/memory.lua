@@ -4,17 +4,56 @@ local M = {}
 
 local api = require('slopcode.api')
 
---- Estimate token count from text length (rough: 1 token per 4 chars).
+-- Based on: https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/tokenCalculation.ts
+-- Token estimation constants
+-- ASCII characters (0-127) are roughly 4 chars per token
+local ASCII_TOKENS_PER_CHAR = 0.25
+-- Non-ASCII characters (CJK, emoji, etc.) are often 1-2 tokens per char.
+-- We use 1.3 as a conservative estimate to avoid underestimation.
+local NON_ASCII_TOKENS_PER_CHAR = 1.3
+-- Maximum chars before falling back to simple length/chars_per_token
+local MAX_CHARS_FOR_FULL_HEURISTIC = 100000
+local DEFAULT_CHARS_PER_TOKEN = 4
+
+--- Estimate token count from text with character-aware heuristic.
+--- ASCII chars are ~0.25 tokens each (4 chars/token),
+--- non-ASCII chars (CJK, emoji, etc.) are ~1.3 tokens each.
+--- For very long strings, falls back to length/chars_per_token for performance.
 --- @param text string
---- @return integer
+--- @return number
 local function estimate_tokens(text)
     if type(text) ~= 'string' then
         return 0
     end
-    return math.ceil(#text / 4)
+
+    local len = #text
+    if len > MAX_CHARS_FOR_FULL_HEURISTIC then
+        return len / DEFAULT_CHARS_PER_TOKEN
+    end
+
+    local tokens = 0
+    for i = 1, len do
+        if text:byte(i) <= 127 then
+            tokens = tokens + ASCII_TOKENS_PER_CHAR
+        else
+            tokens = tokens + NON_ASCII_TOKENS_PER_CHAR
+        end
+    end
+    return tokens
+end
+
+--- Estimate tokens for tool calls JSON (part of assistant messages).
+--- @param tool_calls table[]
+--- @return number
+local function estimate_tool_calls_tokens(tool_calls)
+    if not tool_calls or #tool_calls == 0 then
+        return 0
+    end
+    return estimate_tokens(vim.json.encode(tool_calls))
 end
 
 --- Estimate total token count across all messages.
+--- Counts content text, tool calls in assistant messages, and tool_call_id in tool messages.
 --- @param messages table[]
 --- @return integer
 local function estimate_messages_tokens(messages)
@@ -23,8 +62,16 @@ local function estimate_messages_tokens(messages)
         if type(msg.content) == 'string' then
             total = total + estimate_tokens(msg.content)
         end
+        -- Tool calls in assistant messages contribute tokens
+        if msg.tool_calls then
+            total = total + estimate_tool_calls_tokens(msg.tool_calls)
+        end
+        -- Tool role messages have a tool_call_id that counts
+        if msg.role == 'tool' and msg.tool_call_id then
+            total = total + estimate_tokens(msg.tool_call_id)
+        end
     end
-    return total
+    return math.floor(total)
 end
 
 --- Compact messages when they exceed the context window.
