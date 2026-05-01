@@ -10,9 +10,6 @@ local config = require('slopcode.config')
 local status = require('slopcode.status')
 local sync = require('slopcode.utils.vim').sync
 
---- @type vim.SystemObj?
-local _current_task
-
 --- Create the chat buffer, window, keymaps, and prompt callback.
 --- @param buf integer
 --- @param win integer
@@ -116,12 +113,8 @@ end
 --- Close the chat window, abort agent, and clean up resources.
 function M.close()
     agent.abort()
-    if _current_task then
-        _current_task:close()
-        _current_task = nil
-    end
 
-    local buf = loop.buf()()
+    local buf = loop.buf()
     local win = loop.win()
     local layout = config.display.layout
     loop.detach()
