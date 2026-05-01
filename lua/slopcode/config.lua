@@ -37,6 +37,8 @@ Current working directory: ${CWD}]],
         copilot = require('slopcode.filters.copilot'),
         ollama = require('slopcode.filters.ollama'),
         crofai = require('slopcode.filters.crofai'),
+        anthropic = require('slopcode.filters.anthropic'),
+        gemini = require('slopcode.filters.gemini'),
     },
 
     --- @type string[] list of file paths to include in the system prompt context

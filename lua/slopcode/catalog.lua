@@ -14,12 +14,24 @@ local NPM_TO_PARSER = {
 
 --- Build a headers function that reads the first non-empty env key as a Bearer token.
 --- @param env_keys string[]
---- @return fun(): table
+--- @return fun()?: table
 local function make_headers(env_keys)
     if not env_keys or #env_keys == 0 then
         return function()
             return {}
         end
+    end
+
+    local provider_has_key = false
+    for _, e in ipairs(env_keys) do
+        if (os.getenv(e) or '') ~= '' then
+            provider_has_key = true
+            break
+        end
+    end
+
+    if not provider_has_key then
+        return nil
     end
 
     return function()
@@ -61,22 +73,8 @@ local function transform(raw, config)
             local base_url = (pdata.api or ''):gsub('/+$', '')
             local env_keys = pdata.env or {}
 
-            local provider_has_key = #env_keys == 0 or provider_id == 'github-copilot'
-            for _, e in ipairs(env_keys) do
-                if (os.getenv(e) or '') ~= '' then
-                    provider_has_key = true
-                    break
-                end
-            end
-
             for model_id, mdata in pairs(pdata.models) do
-                if
-                    type(mdata) == 'table'
-                    and mdata.status ~= 'deprecated'
-                    and mdata.tool_call == true
-                    and provider_has_key
-                    and parser
-                then
+                if type(mdata) == 'table' and mdata.status ~= 'deprecated' and mdata.tool_call == true then
                     local limits = mdata.limit or {}
                     local costs = mdata.cost or {}
                     local mods = mdata.modalities or {}
@@ -101,7 +99,7 @@ local function transform(raw, config)
                         env = env_keys,
                         headers = make_headers(env_keys),
                     }
-                    m.url = resolve_url(m, config)
+
                     models[#models + 1] = m
                 end
             end
@@ -153,11 +151,16 @@ function M.build()
         end
     end
 
-    for _, m in ipairs(models) do
+    for i, m in ipairs(models) do
         m.key = m.provider .. '/' .. m.id
-        m.url = resolve_url(m, config)
         if not m.headers then
             m.headers = make_headers(m.env)
+        end
+        if not m.url then
+            m.url = resolve_url(m, config)
+        end
+        if not m.url or m.url == '' or not m.parser or not m.headers then
+            table.remove(models, i)
         end
     end
 
