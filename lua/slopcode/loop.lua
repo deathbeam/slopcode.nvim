@@ -169,7 +169,6 @@ local function apply_folds(win, folds, clear_existing)
         for _, r in ipairs(folds) do
             pcall(vim.cmd, r[1] .. ',' .. r[2] .. 'fold')
         end
-        pcall(vim.cmd, '%foldclose')
     end)
 end
 

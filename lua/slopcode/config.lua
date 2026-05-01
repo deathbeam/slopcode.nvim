@@ -9,8 +9,6 @@ return {
         layout = 'vsplit',
         --- @type boolean show reasoning tokens
         thinking = true,
-        --- @type boolean automatically fold tool calls
-        auto_fold = true,
     },
 
     --- @type string system prompt

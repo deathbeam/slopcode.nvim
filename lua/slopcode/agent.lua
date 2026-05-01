@@ -248,7 +248,6 @@ function M.run(user_text)
                 for _, tr in ipairs(tools.execute_all(result.tool_calls)) do
                     loop.push({
                         type = 'tool_result',
-                        quiet = config.display.auto_fold,
                         name = tr.name,
                         label = tr.label,
                         args = tr.args,

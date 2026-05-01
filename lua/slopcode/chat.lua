@@ -72,6 +72,7 @@ local function create_ui()
         vim.wo[win].foldtext =
             "substitute(getline(v:foldstart),'^[▸▶] ','▸ ','').'  [+'.(v:foldend-v:foldstart+1).' lines]'"
         vim.wo[win].foldminlines = 2
+        vim.wo[win].foldlevel = 0
         vim.wo[win].conceallevel = 2
         vim.wo[win].concealcursor = 'ncv'
         vim.wo[win].wrap = true
