@@ -221,7 +221,7 @@ local function dispatch(event)
     elseif t == 'tool_result' then
         ensure_blank_line(_buf)
         local start_line, end_line = render_tool_block(_buf, event.name, event.label or event.args or '', event.content)
-        if end_line >= start_line and quiet then
+        if end_line >= start_line then
             _folding[#_folding + 1] = { start_line, end_line }
         end
     elseif t == 'status' then
