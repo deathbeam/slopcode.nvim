@@ -63,9 +63,8 @@ end
 
 --- Transform raw models.dev data into resolved model tables.
 --- @param raw table
---- @param config table
 --- @return table[]
-local function transform(raw, config)
+local function transform(raw)
     local models = {}
     for provider_id, pdata in pairs(raw) do
         if type(pdata) == 'table' and type(pdata.models) == 'table' then
@@ -142,7 +141,7 @@ function M.build()
 
     local config = require('slopcode.config')
     local raw = load_raw()
-    local models = transform(raw, config)
+    local models = transform(raw)
 
     for _, filter in pairs(config.filters) do
         local ok, filtered = pcall(filter, models)
@@ -156,7 +155,7 @@ function M.build()
         if not m.headers then
             m.headers = make_headers(m.env)
         end
-        if not m.url then
+        if not m.url or m.url == '' then
             m.url = resolve_url(m, config)
         end
         if not m.url or m.url == '' or not m.parser or not m.headers then

@@ -239,11 +239,11 @@ function M.model()
             labels[#labels + 1] = m.key
         end
         sync()
-        local _, idx = async.await(3, vim.ui.select, labels, { prompt = 'Select model: ' })
-        if idx and models[idx] then
-            config.model = models[idx].key
-            status.subheader1(models[idx].key)
-            status.notify('Model: ' .. models[idx].key, 'info', 3000)
+        local label = async.await(3, vim.ui.select, labels, { prompt = 'Select model: ' })
+        if label then
+            config.model = label
+            status.subheader1(label)
+            status.notify('Model: ' .. label, 'info', 3000)
         end
     end)
 end
