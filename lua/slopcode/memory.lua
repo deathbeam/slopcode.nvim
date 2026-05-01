@@ -56,7 +56,7 @@ end
 --- Counts content text, tool calls in assistant messages, and tool_call_id in tool messages.
 --- @param messages table[]
 --- @return integer
-local function estimate_messages_tokens(messages)
+function M.estimate(messages)
     local total = 0
     for _, msg in ipairs(messages) do
         if type(msg.content) == 'string' then
@@ -74,10 +74,6 @@ local function estimate_messages_tokens(messages)
     return math.floor(total)
 end
 
-function M.estimate(messages)
-    return estimate_messages_tokens(messages)
-end
-
 --- Compact messages when they exceed the context window.
 --- @async
 --- @param messages table[]
@@ -93,7 +89,7 @@ function M.compact(messages, opts)
     local max_tokens = math.floor(context_window * 0.75)
     local keep_recent = 6
 
-    if estimate_messages_tokens(messages) < max_tokens or #messages <= keep_recent + 1 then
+    if M.estimate(messages) < max_tokens or #messages <= keep_recent + 1 then
         return messages, false
     end
 
