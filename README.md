@@ -44,7 +44,7 @@ then just `:Slop <prompt>?` and away you go.
 local config = require('slopcode.config')
 
 config.model = 'ollama-cloud/glm-5.1' -- default model
-config.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
+config.display.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
 ```
 
 - environment variables for API keys: `OPENAI_API_KEY`, `OLLAMA_API_KEY`, etc, see [models.dev](https://models.dev)
