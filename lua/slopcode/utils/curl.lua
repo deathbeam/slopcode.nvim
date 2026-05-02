@@ -123,7 +123,6 @@ end
 --- @return string body, string? err
 M.get = async.wrap(3, function(url, opts, on_exit)
     local args, body_file = build_cmd('GET', url, opts)
-    exec_async(args, body_file, on_exit)
 
     exec_async(args, body_file, function(body, err)
         if err then
