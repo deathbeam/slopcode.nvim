@@ -5,20 +5,12 @@ local M = {}
 local api = require('slopcode.api')
 
 -- Based on: https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/tokenCalculation.ts
--- Token estimation constants
--- ASCII characters (0-127) are roughly 4 chars per token
 local ASCII_TOKENS_PER_CHAR = 0.25
--- Non-ASCII characters (CJK, emoji, etc.) are often 1-2 tokens per char.
--- We use 1.3 as a conservative estimate to avoid underestimation.
 local NON_ASCII_TOKENS_PER_CHAR = 1.3
--- Maximum chars before falling back to simple length/chars_per_token
 local MAX_CHARS_FOR_FULL_HEURISTIC = 100000
 local DEFAULT_CHARS_PER_TOKEN = 4
 
 --- Estimate token count from text with character-aware heuristic.
---- ASCII chars are ~0.25 tokens each (4 chars/token),
---- non-ASCII chars (CJK, emoji, etc.) are ~1.3 tokens each.
---- For very long strings, falls back to length/chars_per_token for performance.
 --- @param text string
 --- @return number
 local function estimate_tokens(text)
@@ -42,16 +34,6 @@ local function estimate_tokens(text)
     return tokens
 end
 
---- Estimate tokens for tool calls JSON (part of assistant messages).
---- @param tool_calls table[]
---- @return number
-local function estimate_tool_calls_tokens(tool_calls)
-    if not tool_calls or #tool_calls == 0 then
-        return 0
-    end
-    return estimate_tokens(vim.json.encode(tool_calls))
-end
-
 --- Estimate total token count across all messages.
 --- Counts content text, tool calls in assistant messages, and tool_call_id in tool messages.
 --- @param messages table[]
@@ -63,8 +45,8 @@ function M.estimate(messages)
             total = total + estimate_tokens(msg.content)
         end
         -- Tool calls in assistant messages contribute tokens
-        if msg.tool_calls then
-            total = total + estimate_tool_calls_tokens(msg.tool_calls)
+        if msg.tool_calls and #msg.tool_calls > 0 then
+            total = total + estimate_tokens(vim.json.encode(msg.tool_calls))
         end
         -- Tool role messages have a tool_call_id that counts
         if msg.role == 'tool' and msg.tool_call_id then
