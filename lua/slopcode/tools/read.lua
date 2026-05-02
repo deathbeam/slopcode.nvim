@@ -13,7 +13,7 @@ return {
         'If read is truncated, continue with the offset it suggests — do not guess unseen lines',
     },
 
-    description = 'Read the contents of a file from the filesystem. Use offset/limit for large files. Each line is prefixed with a hash anchor (e.g. "5ab|line content") — use these anchors in edit calls to target specific lines.',
+    description = 'Read the contents of a file from the filesystem. Use offset/limit for large files. Each line is prefixed with a hash anchor (e.g. "5ab§line content") — use these anchors in edit calls to target specific lines.',
 
     parameters = {
         type = 'object',

@@ -2,13 +2,13 @@
 
 --- Hashline-anchored editing: stateless hash computation and anchor validation.
 ---
---- When the LLM reads a file, each line gets a hash anchor prefix
---- (e.g. "1ab|line content"). The LLM references anchors in edit calls
+--- When we read a file, each line gets a hash anchor prefix
+--- (e.g. "1ab§line content"). Edit calls then reference these anchors
 --- instead of repeating old code.
 ---
---- Format: LINETAG|content  (e.g. "5ab|local x = 1")
+--- Format: LINETAG§content  (e.g. "5ab§local x = 1")
 --- - LINETAG: line number + 2-char BPE bigram hash (e.g. "5ab")
---- - |: content separator
+--- - §: content separator
 --- - content: the actual line content
 ---
 --- For structural-only lines (whitespace + braces), the hash is an ordinal
@@ -710,12 +710,10 @@ local BIGRAM_SET = {}
 for _, bg in ipairs(HASHLINE_BIGRAMS) do
     BIGRAM_SET[bg] = true
 end
-local RE_SIGNIFICANT = '[%a%d]'
-local SEPARATOR = '|'
-local HASHLINE_PREFIX_RE = '^%s*[%+>%-]*%s*%d+%l%l[|#:]'
-local HASHLINE_DIFF_PLUS_RE = '^%s*%+%s*%d+%l%l[|#:]'
-local DIFF_PLUS_RE = '^%+[^%+]'
-local TRUNCATION_NOTICE_RE = '^%[.*lines?'
+local SEPARATOR = '§'
+local LINE_HASH = '(%d+)(%l%l)' -- captures line number + 2-letter hash
+local MARKERS = '[>+%-]' -- optional prefix markers (>>>, +, -)
+local HASHLINE_PREFIX_RE = '^[^' .. SEPARATOR .. ']*' .. SEPARATOR
 local REBASE_WINDOW = 5
 local MISMATCH_CONTEXT = 2
 
@@ -732,32 +730,7 @@ local function fnv1a(s, seed)
     return h
 end
 
---- After stripping structural chars, is nothing left?
-local function is_structural_line(trimmed)
-    return trimmed:gsub('[%s{}]', '') == ''
-end
-
---- Ordinal suffix for line numbers: 1→st, 2→nd, 3→rd, 11→th, 42→nd, …
---- These merge with the number into a single BPE token (1st, 42nd, 100th).
---- @param line integer  1-indexed line number
---- @return string  2-char ordinal suffix bigram
-local function structural_bigram(line)
-    local mod100 = line % 100
-    if mod100 >= 11 and mod100 <= 13 then
-        return 'th'
-    end
-    local mod10 = line % 10
-    if mod10 == 1 then
-        return 'st'
-    elseif mod10 == 2 then
-        return 'nd'
-    elseif mod10 == 3 then
-        return 'rd'
-    end
-    return 'th'
-end
-
---- Normalize Unicode variations that LLMs commonly introduce.
+--- Normalize Unicode variations
 --- @param s string
 --- @return string
 local function normalize_unicode(s)
@@ -772,58 +745,37 @@ local function normalize_unicode(s)
     return s
 end
 
---- Strip a hashline display prefix from a single line, repeatedly.
---- Handles cases like `>>> 5ab|x` or `+ 5ab|x` or nested prefixes.
---- @param line string
---- @return string
-local function strip_one_prefix(line)
-    local prev
-    repeat
-        prev = line
-        line = line:gsub(HASHLINE_PREFIX_RE, '')
-    until line == prev
-    return line
-end
-
---- Parse a hashline anchor reference (e.g. "5ab" or "5ab|content").
+--- Parse an anchor reference (e.g. "5ab", ">>> 5ab", "+5ab|content").
 --- @param ref string  anchor reference
 --- @return integer line  1-indexed line number
 --- @return string hash  2-char BPE bigram
 local function parse_anchor_ref(ref)
-    -- Strip leading whitespace and markers (>>>, >>, +, -)
-    local core = ref:match('^%s*[>+%-]*%s*(.+)$') or ref
-    -- Strip trailing content separator and text (| or :, for display refs)
-    core = core:match('^([^|:]+)') or core
-    core = core:match('^%s*(.-)%s*$') -- trim
-    -- Match line number immediately followed by 2-letter hash
-    local line_str, hash_str = core:match('^(%d+)(%l%l)$')
-    if not line_str then
-        -- Check if the user provided just a 2-letter hash without a line number
-        local hash_only = ref:match('^%s*[%+>%-]*%s*(%l%l)%s*$')
-        if hash_only then
-            error(
-                '[E_BAD_REF] Invalid anchor "'
-                    .. ref
-                    .. '". It looks like you supplied only the 2-letter suffix ("'
-                    .. hash_only
-                    .. '"). Copy the full anchor exactly as shown (line number + suffix, e.g. "5'
-                    .. hash_only
-                    .. '" = "5'
-                    .. hash_only
-                    .. '").',
-                0
-            )
+    local line, hash = M.parse(ref)
+    if line then
+        if line < 1 then
+            error('[E_BAD_REF] Line number must be >= 1, got ' .. line .. ' in "' .. ref .. '".', 0)
         end
-        error('[E_BAD_REF] Invalid anchor "' .. ref .. '". Expected line number + 2-letter hash (e.g. "5ab").', 0)
+        if not BIGRAM_SET[hash] then
+            error('[E_BAD_REF] Invalid hash "' .. hash .. '" in "' .. ref .. '". Not in bigram alphabet.', 0)
+        end
+        return line, hash
     end
-    local line = tonumber(line_str)
-    if line < 1 then
-        error('[E_BAD_REF] Line number must be >= 1, got ' .. line .. ' in "' .. ref .. '".', 0)
+    -- line is nil — check for hash-only or full failure
+    if hash then
+        error(
+            '[E_BAD_REF] Invalid anchor "'
+                .. ref
+                .. '". It looks like you supplied only the 2-letter suffix ("'
+                .. hash
+                .. '"). Copy the full anchor exactly as shown (line number + suffix, e.g. "5'
+                .. hash
+                .. '" = "5'
+                .. hash
+                .. '").',
+            0
+        )
     end
-    if not BIGRAM_SET[hash_str] then
-        error('[E_BAD_REF] Invalid hash "' .. hash_str .. '" in "' .. ref .. '". Not in bigram alphabet.', 0)
-    end
-    return line, hash_str
+    error('[E_BAD_REF] Invalid anchor "' .. ref .. '". Expected line number + 2-letter hash (e.g. "5ab").', 0)
 end
 
 --- Try to find the requested hash within ±window lines of the anchor line.
@@ -1030,12 +982,26 @@ end
 --- @param line string  line content
 --- @return string hash  2-char bigram from HASHLINE_BIGRAMS
 function M.hash(idx, line)
-    local trimmed = line:gsub('%s+$', ''):gsub('\r', '')
-    if is_structural_line(trimmed) then
-        return structural_bigram(idx)
+    local trimmed = line:gsub('%s+$', '')
+    -- Structural lines: whitespace + braces only → ordinal suffix
+    if trimmed:gsub('[%s{}]', '') == '' then
+        local mod100 = idx % 100
+        if mod100 >= 11 and mod100 <= 13 then
+            return 'th'
+        end
+        local mod10 = idx % 10
+        if mod10 == 1 then
+            return 'st'
+        elseif mod10 == 2 then
+            return 'nd'
+        elseif mod10 == 3 then
+            return 'rd'
+        end
+        return 'th'
     end
+
     local seed = 0
-    if not trimmed:find(RE_SIGNIFICANT) then
+    if not trimmed:find('[%a%d]') then
         seed = idx
     end
     return HASHLINE_BIGRAMS[(fnv1a(trimmed, seed) % HASHLINE_BIGRAMS_COUNT) + 1]
@@ -1044,67 +1010,45 @@ end
 --- Format a single line with its hash anchor prefix.
 --- @param idx integer  1-indexed line number
 --- @param line string  raw line content
---- @return string  e.g. "5ab|local x = 1"
+--- @return string  e.g. "5ab§local x = 1"
 function M.format(idx, line)
-    return string.format('%d%s%c%s', idx, M.hash(idx, line), string.byte(SEPARATOR), line)
+    return idx .. M.hash(idx, line) .. SEPARATOR .. line
+end
+
+--- Parse a hashline-formatted line or anchor reference into its components.
+--- Tries, in order: formatted display line ("5ab§content"),
+--- raw reference ("5ab", ">>> 5ab"), and hash-only ("ab").
+--- @param line string  Formatted line or anchor reference
+--- @return number? line_num
+--- @return string? hash
+--- @return string? content content after § (display format), or the original line on failure
+function M.parse(line)
+    -- Try formatted display line: "5ab§content"
+    local line_num, hash, content = line:match('^' .. LINE_HASH .. SEPARATOR .. '(.*)$')
+    if line_num then
+        return tonumber(line_num), hash, content
+    end
+    -- Try raw reference with optional markers: "5ab", ">>> 5ab"
+    local line_str, hash_str = line:match('^%s*' .. MARKERS .. '*%s*' .. LINE_HASH)
+    if line_str then
+        return tonumber(line_str), hash_str
+    end
+    -- Try hash-only: "ab"
+    local hash_only = line:match('^%s*' .. MARKERS .. '*%s*(%l%l)%s*$')
+    if hash_only then
+        return nil, hash_only
+    end
+    return nil, nil, line
 end
 
 --- Strip hashline display prefixes from an array of lines.
---- Mode 1: If ALL non-empty lines have hashline prefixes, strip them all.
---- Mode 2: If lines have diff `+` prefixes with hashline anchors, strip those.
---- Mode 3: If most lines have diff `+` prefixes (no anchors), strip those.
---- Also filters read truncation notices like [5 more lines].
+--- If a line starts with a hashline prefix (anything before §), strip it once.
 --- @param lines string[]  Array of lines to strip
 --- @return string[]  Lines with prefixes removed where applicable
-function M.strip_hashline(lines)
-    local nonEmpty = 0
-    local hashPrefixed = 0
-    local diffPlusHashPrefixed = 0
-    local diffPlus = 0
-    for _, line in ipairs(lines) do
-        if line ~= '' and not line:match(TRUNCATION_NOTICE_RE) then
-            nonEmpty = nonEmpty + 1
-            if line:match(HASHLINE_PREFIX_RE) then
-                hashPrefixed = hashPrefixed + 1
-            end
-            if line:match(HASHLINE_DIFF_PLUS_RE) then
-                diffPlusHashPrefixed = diffPlusHashPrefixed + 1
-            end
-            if line:match(DIFF_PLUS_RE) then
-                diffPlus = diffPlus + 1
-            end
-        end
-    end
-    if nonEmpty == 0 then
-        return lines
-    end
-
-    -- Mode 1: All non-empty lines have hashline prefixes → strip them all
-    local stripAll = hashPrefixed > 0 and hashPrefixed == nonEmpty
-    -- Mode 2: Some lines have + with hashline anchors → strip those specifically
-    -- Mode 3: Most lines have diff + prefixes (without anchors) → strip + from all
-    local stripDiffPlus = not stripAll and diffPlusHashPrefixed == 0 and diffPlus > 0 and diffPlus >= nonEmpty * 0.5
-
-    if not stripAll and not stripDiffPlus then
-        return lines
-    end
-
+function M.strip(lines)
     local result = {}
     for _, line in ipairs(lines) do
-        -- Filter out read truncation notices
-        if line:match(TRUNCATION_NOTICE_RE) then
-            -- skip
-        elseif line == '' then
-            result[#result + 1] = line
-        elseif stripAll then
-            result[#result + 1] = strip_one_prefix(line)
-        elseif stripDiffPlus then
-            -- Strip leading + and optional space (diff-style)
-            line = line:gsub('^%+ ?', '')
-            result[#result + 1] = line
-        else
-            result[#result + 1] = line
-        end
+        result[#result + 1] = line:gsub(HASHLINE_PREFIX_RE, '')
     end
     return result
 end

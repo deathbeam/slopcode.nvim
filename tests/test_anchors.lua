@@ -3,7 +3,7 @@
 --- Tests for slopcode anchors module and edit tool
 
 local child = MiniTest.new_child_neovim()
-
+local anchors = require('slopcode.anchors')
 -----------------------------------------------------------------------
 -- Helpers
 -----------------------------------------------------------------------
@@ -41,16 +41,6 @@ end
 local function write_temp(path, content)
     local lines = vim.split(content, '\n', { plain = true })
     child.lua(string.format("vim.fn.writefile(%s, '%s')", vim.inspect(lines), path))
-end
-
---- Parse an anchored line to extract line number, hash, and content.
---- e.g. "5ab|local x = 1" → 5, "ab", "local x = 1"
-local function parse_anchored_line(line)
-    local line_num, hash, content = line:match('^(%d+)(%l%l)|(.*)')
-    if line_num then
-        return tonumber(line_num), hash, content
-    end
-    return nil, nil, line
 end
 
 -----------------------------------------------------------------------
@@ -105,7 +95,7 @@ describe('anchors module', function()
         MiniTest.expect.equality(child.lua_get('_G._diff'), true)
     end)
 
-    it('format produces LINETAG|content format', function()
+    it('format produces LINETAG§content format', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
@@ -113,7 +103,7 @@ describe('anchors module', function()
             _G._formatted = formatted
         ]])
         local formatted = child.lua_get('_G._formatted')
-        local line_num, hash, content = parse_anchored_line(formatted)
+        local line_num, hash, content = anchors.parse(formatted)
         MiniTest.expect.equality(line_num, 5)
         MiniTest.expect.equality(content, 'local x = 1')
         MiniTest.expect.equality(#hash, 2)
@@ -207,54 +197,65 @@ describe('anchors module', function()
         MiniTest.expect.no_equality(child.lua_get('_G._err'):find('2-letter suffix'), nil)
     end)
 
-    it('strip_hashline strips prefixes when all lines have them', function()
+    it('strips § prefixes from any line that has them', function()
         load_config()
         child.lua([[
             local anchors = require('slopcode.anchors')
-            -- Mode 1: all lines have hashline prefixes
-            local r1 = anchors.strip_hashline({ '1ab|hello', '2cd|world' })
+            -- Lines with § prefix get stripped
+            local r1 = anchors.strip({ '1ab§hello', '2cd§world' })
             _G._m1_n = #r1
             _G._m1_a = r1[1]
             _G._m1_b = r1[2]
-            -- Mode 1: also strips >>> markers
-            local r2 = anchors.strip_hashline({ '>>> 1ab|hello', '>>> 2cd|world' })
+            -- Also strips >>> markers before §
+            local r2 = anchors.strip({ '>>> 1ab§hello', '>>> 2cd§world' })
             _G._m2_n = #r2
             _G._m2_a = r2[1]
             _G._m2_b = r2[2]
-            -- Mode 3: diff + prefixes
-            local r3 = anchors.strip_hashline({ '+ line1', '+ line2', '+ line3' })
+            -- Lines without § are left untouched (no diff stripping)
+            local r3 = anchors.strip({ '+ line1', '+ line2', '+ line3' })
             _G._m3_n = #r3
             _G._m3_a = r3[1]
-            -- Truncation notice filtering
-            local r4 = anchors.strip_hashline({ '1ab|hello', '[5 more lines]', '2cd|world' })
+            -- Truncation notices no longer special-cased, left as-is
+            local r4 = anchors.strip({ '1ab§hello', '[5 more lines]', '2cd§world' })
             _G._m4_n = #r4
             _G._m4_a = r4[1]
             _G._m4_b = r4[2]
-            -- No stripping when mixed
-            local r5 = anchors.strip_hashline({ '1ab|hello', 'plain text' })
+            _G._m4_c = r4[3]
+            -- Mixed: only §-prefixed lines are stripped
+            local r5 = anchors.strip({ '1ab§hello', 'plain text' })
             _G._m5_n = #r5
             _G._m5_a = r5[1]
             _G._m5_b = r5[2]
+            -- Partial hashline (no line number) also stripped if § present
+            local r6 = anchors.strip({ 'ab§hello', 'cd§world' })
+            _G._m6_n = #r6
+            _G._m6_a = r6[1]
+            _G._m6_b = r6[2]
         ]])
-        -- Mode 1: all prefixes stripped
+        -- All §-prefixed lines stripped
         MiniTest.expect.equality(child.lua_get('_G._m1_n'), 2)
         MiniTest.expect.equality(child.lua_get('_G._m1_a'), 'hello')
         MiniTest.expect.equality(child.lua_get('_G._m1_b'), 'world')
-        -- Mode 1 with >>> markers
+        -- Same with >>> markers
         MiniTest.expect.equality(child.lua_get('_G._m2_n'), 2)
         MiniTest.expect.equality(child.lua_get('_G._m2_a'), 'hello')
         MiniTest.expect.equality(child.lua_get('_G._m2_b'), 'world')
-        -- Mode 3: diff + stripped
+        -- Diff lines without § are untouched
         MiniTest.expect.equality(child.lua_get('_G._m3_n'), 3)
-        MiniTest.expect.equality(child.lua_get('_G._m3_a'), 'line1')
-        -- Truncation notice filtered
-        MiniTest.expect.equality(child.lua_get('_G._m4_n'), 2)
+        MiniTest.expect.equality(child.lua_get('_G._m3_a'), '+ line1')
+        -- Truncation notices left as-is
+        MiniTest.expect.equality(child.lua_get('_G._m4_n'), 3)
         MiniTest.expect.equality(child.lua_get('_G._m4_a'), 'hello')
-        MiniTest.expect.equality(child.lua_get('_G._m4_b'), 'world')
-        -- No stripping when mixed
+        MiniTest.expect.equality(child.lua_get('_G._m4_b'), '[5 more lines]')
+        MiniTest.expect.equality(child.lua_get('_G._m4_c'), 'world')
+        -- Mixed: only §-prefixed stripped
         MiniTest.expect.equality(child.lua_get('_G._m5_n'), 2)
-        MiniTest.expect.equality(child.lua_get('_G._m5_a'), '1ab|hello')
+        MiniTest.expect.equality(child.lua_get('_G._m5_a'), 'hello')
         MiniTest.expect.equality(child.lua_get('_G._m5_b'), 'plain text')
+        -- Partial hashline also stripped
+        MiniTest.expect.equality(child.lua_get('_G._m6_n'), 2)
+        MiniTest.expect.equality(child.lua_get('_G._m6_a'), 'hello')
+        MiniTest.expect.equality(child.lua_get('_G._m6_b'), 'world')
     end)
 end)
 
@@ -263,16 +264,16 @@ end)
 -----------------------------------------------------------------------
 
 describe('read tool with anchors', function()
-    it('returns lines with LINETAG|content prefix', function()
+    it('returns lines with LINETAG§content prefix', function()
         load_config()
         write_temp('/tmp/slopcode_test_anchor_read.txt', 'line1\nline2\nline3')
         local ok, result = run_handler('read', { path = '/tmp/slopcode_test_anchor_read.txt' })
         MiniTest.expect.equality(ok, true)
-        -- Each line should have a | separator
+        -- Each line should have a § separator
         local lines = vim.split(result, '\n', { plain = true })
         for _, line in ipairs(lines) do
             if line ~= '' and not line:find('^%[') then
-                local line_num, hash, content = parse_anchored_line(line)
+                local line_num, hash, content = anchors.parse(line)
                 MiniTest.expect.no_equality(line_num, nil)
                 MiniTest.expect.equality(#hash, 2)
             end
@@ -284,7 +285,7 @@ describe('read tool with anchors', function()
         write_temp('/tmp/slopcode_test_anchor_content.txt', 'hello world')
         local ok, result = run_handler('read', { path = '/tmp/slopcode_test_anchor_content.txt' })
         MiniTest.expect.equality(ok, true)
-        local line_num, hash, content = parse_anchored_line(vim.trim(result))
+        local line_num, hash, content = anchors.parse(vim.trim(result))
         MiniTest.expect.equality(line_num, 1)
         MiniTest.expect.equality(content, 'hello world')
     end)
@@ -307,7 +308,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -340,7 +341,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -369,7 +370,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -398,7 +399,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -444,7 +445,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -484,7 +485,7 @@ describe('edit tool', function()
         local read_lines1 = vim.split(read_result1, '\n', { plain = true })
         local anchors1 = {}
         for _, line in ipairs(read_lines1) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors1[line_num] = line_num .. hash
             end
@@ -506,7 +507,7 @@ describe('edit tool', function()
         local read_lines2 = vim.split(read_result2, '\n', { plain = true })
         local anchors2 = {}
         for _, line in ipairs(read_lines2) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors2[line_num] = line_num .. hash
             end
@@ -536,7 +537,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -573,7 +574,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -599,7 +600,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -608,7 +609,7 @@ describe('edit tool', function()
         local ok, result = run_handler('edit', {
             path = '/tmp/slopcode_test_ef_hashline.txt',
             edits = {
-                { start_anchor = anchors_list[2], end_anchor = anchors_list[2], replacement = { '2xx|newline' } },
+                { start_anchor = anchors_list[2], end_anchor = anchors_list[2], replacement = { '2xx§newline' } },
             },
         })
         -- Should strip the prefix and produce 'newline'
@@ -624,7 +625,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -647,7 +648,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -670,7 +671,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -693,7 +694,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -722,7 +723,7 @@ describe('edit tool', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -754,7 +755,7 @@ describe('edit tool with empty lines', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
@@ -794,7 +795,7 @@ describe('edit tool with empty lines', function()
         local read_lines = vim.split(read_result, '\n', { plain = true })
         local anchors_list = {}
         for _, line in ipairs(read_lines) do
-            local line_num, hash, _ = parse_anchored_line(line)
+            local line_num, hash, _ = anchors.parse(line)
             if line_num then
                 anchors_list[line_num] = line_num .. hash
             end
