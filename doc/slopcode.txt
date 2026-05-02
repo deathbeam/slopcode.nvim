@@ -1,5 +1,5 @@
 *slopcode.txt*
-                                   For NVIM v0.8.0    Last change: 2026 May 01
+                                   For NVIM v0.8.0    Last change: 2026 May 02
 
 ==============================================================================
 Table of Contents                                 *slopcode-table-of-contents*
