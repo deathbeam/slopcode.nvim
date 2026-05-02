@@ -30,7 +30,7 @@ local _usage = { input = 0, output = 0, cache_read = 0, cache_write = 0 }
 --- @param parser table
 --- @return table result
 local function stream_turn(model, parser)
-    local api_messages = { { role = 'system', content = prompt.load() or '' } }
+    local api_messages = { { role = 'system', content = prompt.build() or '' } }
     for _, msg in ipairs(_messages) do
         local m = {}
         for k, v in pairs(msg) do
@@ -144,7 +144,7 @@ function M.reset()
     for k in pairs(_usage) do
         _usage[k] = nil
     end
-    prompt.reload()
+    prompt.invalidate()
 end
 
 --- Enqueue a user message (injected before the next LLM call).

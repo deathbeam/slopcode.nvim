@@ -8,9 +8,9 @@ local sync = require('slopcode.utils.vim').sync
 --- @type string?
 local _cached = nil
 
---- Load and cache the system prompt with context files and template expansion.
+--- Build and cache the system prompt with context files and template expansion.
 --- @return string
-function M.load()
+function M.build()
     if _cached then
         return _cached
     end
@@ -107,11 +107,9 @@ function M.load()
     return _cached
 end
 
---- Invalidate the cached prompt and reload from scratch.
---- @return string
-function M.reload()
+--- Invalidate the cached prompt
+function M.invalidate()
     _cached = nil
-    return M.load()
 end
 
 return M

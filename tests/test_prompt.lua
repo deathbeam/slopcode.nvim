@@ -48,8 +48,8 @@ describe('prompt template expansion', function()
             require('slopcode.config').context = {} -- skip file resolution
             local prompt = require('slopcode.prompt')
             -- Force reload to pick up modified config
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -62,8 +62,8 @@ describe('prompt template expansion', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -76,8 +76,8 @@ describe('prompt template expansion', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -91,8 +91,8 @@ describe('prompt template expansion', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -105,8 +105,8 @@ describe('prompt template expansion', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -127,9 +127,9 @@ describe('prompt caching', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local r1 = prompt.load()
-            local r2 = prompt.load()
+            prompt.invalidate()
+            local r1 = prompt.build()
+            local r2 = prompt.build()
             _G._r1 = r1
             _G._r2 = r2
         ]])
@@ -143,12 +143,12 @@ describe('prompt caching', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local r1 = prompt.load()
+            prompt.invalidate()
+            local r1 = prompt.build()
             -- Change the system prompt
             require('slopcode.config').system_prompt = 'New prompt ${CWD}'
-            prompt.reload()
-            local r2 = prompt.load()
+            prompt.invalidate()
+            local r2 = prompt.build()
             _G._r1 = r1
             _G._r2 = r2
         ]])
@@ -170,8 +170,8 @@ describe('prompt context file resolution', function()
         child.lua([[
             require('slopcode.config').context = { '/tmp/slopcode_test_context.txt' }
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -184,8 +184,8 @@ describe('prompt context file resolution', function()
         child.lua([[
             require('slopcode.config').context = { '/tmp/slopcode_no_such_context_file.txt' }
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -201,8 +201,8 @@ describe('prompt context file resolution', function()
         child.lua(string.format([[
             require('slopcode.config').context = { 'TEST_CONTEXT.md' }
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]]))
         local result = child.lua_get('_G._prompt_result')
@@ -219,8 +219,8 @@ describe('prompt context file resolution', function()
         child.lua(string.format([[
             require('slopcode.config').context = { 'DEDUP_CTX.md' }
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]]))
         local result = child.lua_get('_G._prompt_result')
@@ -237,8 +237,8 @@ describe('prompt context file resolution', function()
         child.lua([[
             require('slopcode.config').context = { '/tmp/slopcode_test_section.txt' }
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
@@ -251,8 +251,8 @@ describe('prompt context file resolution', function()
         child.lua([[
             require('slopcode.config').context = {}
             local prompt = require('slopcode.prompt')
-            prompt.reload()
-            local result = prompt.load()
+            prompt.invalidate()
+            local result = prompt.build()
             _G._prompt_result = result
         ]])
         local result = child.lua_get('_G._prompt_result')
