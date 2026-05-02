@@ -142,7 +142,7 @@ function M.reset()
         _queue[k] = nil
     end
     for k in pairs(_usage) do
-        _usage[k] = nil
+        _usage[k] = 0
     end
     prompt.invalidate()
 end
