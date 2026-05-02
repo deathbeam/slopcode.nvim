@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
+--- Core agent logic: manages conversation, streams LLM responses,
+--- executes tool calls. Pushes all rendering events to the event bus.
 local M = {}
 
 local config = require('slopcode.config')
@@ -8,7 +10,7 @@ local api = require('slopcode.api')
 local async = require('async')
 local prompt = require('slopcode.prompt')
 local memory = require('slopcode.memory')
-local loop = require('slopcode.loop')
+local events = require('slopcode.events')
 local text = require('slopcode.utils.text')
 local sync = require('slopcode.utils.vim').sync
 
@@ -87,6 +89,35 @@ local function execute_tools(tool_calls)
     return output
 end
 
+--- Convert a single message to its rendering events and push them.
+--- @param msg table
+local function push_message_events(msg)
+    local meta = msg._meta or {}
+
+    if msg.role == 'user' then
+        events.push({ type = 'user_message', content = msg.content })
+    elseif msg.role == 'assistant' then
+        events.push({ type = 'stream_start', quiet = true })
+        if meta.reasoning and meta.reasoning ~= '' then
+            events.push({ type = 'reasoning_start' })
+            events.push({ type = 'reasoning_delta', content = meta.reasoning })
+        end
+        if msg.content and msg.content ~= '' then
+            events.push({ type = 'content_start' })
+            events.push({ type = 'content_delta', content = msg.content })
+        end
+        events.push({ type = 'stream_end', quiet = true })
+    elseif msg.role == 'tool' then
+        events.push({
+            type = 'tool_result',
+            content = msg.content,
+            name = meta.name,
+            label = meta.label,
+            args = meta.args,
+        })
+    end
+end
+
 --- @async
 --- Stream one turn from the API.
 --- @param session_id string
@@ -117,7 +148,7 @@ local function stream_turn(session_id, model, parser)
         }
     end
 
-    loop.push({ type = 'stream_start' })
+    events.push({ type = 'stream_start' })
 
     local r = async.await(function(resolve)
         local ok, cancel_fn = pcall(api.stream, api_messages, tools, {
@@ -132,28 +163,28 @@ local function stream_turn(session_id, model, parser)
                     in_reasoning = true
 
                     if in_content then
-                        loop.push({ type = 'content_end' })
+                        events.push({ type = 'content_end' })
                         in_content = false
                     end
 
-                    loop.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
+                    events.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
                 end
 
-                loop.push({ type = 'reasoning_delta', content = chunk, quiet = config.hide_reasoning })
+                events.push({ type = 'reasoning_delta', content = chunk, quiet = config.hide_reasoning })
             end,
             on_content = function(chunk)
                 if not in_content then
                     in_content = true
 
                     if in_reasoning then
-                        loop.push({ type = 'reasoning_end' })
+                        events.push({ type = 'reasoning_end' })
                         in_reasoning = false
                     end
 
-                    loop.push({ type = 'content_start' })
+                    events.push({ type = 'content_start' })
                 end
 
-                loop.push({ type = 'content_delta', content = chunk })
+                events.push({ type = 'content_delta', content = chunk })
             end,
             on_done = function(result)
                 resolve(result)
@@ -175,9 +206,9 @@ local function stream_turn(session_id, model, parser)
     end)
 
     if in_content then
-        loop.push({ type = 'content_end' })
+        events.push({ type = 'content_end' })
     elseif in_reasoning then
-        loop.push({ type = 'reasoning_end' })
+        events.push({ type = 'reasoning_end' })
     end
 
     _cancel_fn = nil
@@ -190,9 +221,7 @@ local function stream_turn(session_id, model, parser)
         _usage.cache_write = _usage.cache_write + (r.usage.cache_creation_input_tokens or r.usage.cache_write or 0)
     end
 
-    loop.drain()
-
-    loop.push({
+    events.push({
         type = 'stream_end',
         result = r,
         error = r.error,
@@ -241,16 +270,19 @@ function M.reset()
     end
     prompt.invalidate()
 
-    loop.redraw(_messages)
-    loop.push({ type = 'status', content = 'Conversation reset' })
-    loop.drain()
+    events.push({ type = 'clear' })
+    for _, msg in ipairs(_messages) do
+        push_message_events(msg)
+    end
+    events.push({ type = 'status', content = 'Conversation reset' })
+    events.drain()
 end
 
 --- Enqueue a user message (injected before the next LLM call).
 --- @param text string
 function M.push(text)
     _queue[#_queue + 1] = text
-    loop.push({ type = 'user_message', content = text, quiet = true })
+    events.push({ type = 'user_message', content = text, quiet = true })
 end
 
 --- Drain and return all queued messages.
@@ -266,30 +298,30 @@ end
 --- Checks for queued messages between turns.
 --- @param user_text string
 function M.run(user_text)
-    loop.push({ type = 'agent_start' })
+    events.push({ type = 'agent_start' })
     _running = true
 
     local session_id = text.uuid()
     local model, parser = catalog.model()
     if not model or not parser then
-        loop.push({
+        events.push({
             type = 'status',
             content = 'Error: No model/parser for: ' .. config.model,
         })
-        loop.push({ type = 'stream_end' })
-        loop.push({ type = 'agent_end' })
+        events.push({ type = 'stream_end' })
+        events.push({ type = 'agent_end' })
         _running = false
         return
     end
 
     _messages[#_messages + 1] = { role = 'user', content = user_text }
-    loop.push({ type = 'user_message', content = user_text, quiet = true })
+    events.push({ type = 'user_message', content = user_text, quiet = true })
 
     local ok, err = pcall(function()
         while true do
             -- Compact history
             if memory.should_compact(_messages, model.contextWindow) then
-                loop.push({ type = 'status', content = 'Compacting context...' })
+                events.push({ type = 'status', content = 'Compacting context...' })
                 local compacted = memory.compact(_messages, { model = model, parser = parser })
                 for k in pairs(_messages) do
                     _messages[k] = nil
@@ -297,22 +329,25 @@ function M.run(user_text)
                 for i, msg in ipairs(compacted) do
                     _messages[i] = msg
                 end
-                loop.redraw(_messages)
-                loop.push({ type = 'status', content = 'Context compacted' })
+                events.push({ type = 'clear' })
+                for _, msg in ipairs(_messages) do
+                    push_message_events(msg)
+                end
+                events.push({ type = 'status', content = 'Context compacted' })
             end
 
             -- Inject queued messages
             local queued = M.drain()
             for _, text in ipairs(queued) do
                 _messages[#_messages + 1] = { role = 'user', content = text }
-                loop.push({ type = 'user_message', content = text })
+                events.push({ type = 'user_message', content = text })
             end
 
             -- Stream one turn
             local result = stream_turn(session_id, model, parser)
 
             -- Update usage
-            loop.push({
+            events.push({
                 type = 'usage',
                 requests = _usage.requests,
                 input = _usage.input,
@@ -326,11 +361,11 @@ function M.run(user_text)
             -- Handle result
             if result.aborted then
                 -- we aborted, done
-                loop.push({ type = 'status', content = 'Aborted' })
+                events.push({ type = 'status', content = 'Aborted' })
                 return
             elseif result.error then
                 -- error, we are done
-                loop.push({
+                events.push({
                     type = 'status',
                     content = 'Error: ' .. tostring(result.error),
                 })
@@ -348,7 +383,7 @@ function M.run(user_text)
                 }
 
                 for _, tr in ipairs(execute_tools(result.tool_calls)) do
-                    loop.push({
+                    events.push({
                         type = 'tool_result',
                         name = tr.name,
                         label = tr.label,
@@ -370,7 +405,7 @@ function M.run(user_text)
                 end
             elseif result.finish_reason == 'incomplete' then
                 -- try again
-                loop.push({
+                events.push({
                     type = 'status',
                     content = 'Stream ended unexpectedly, retrying...',
                 })
@@ -392,17 +427,17 @@ function M.run(user_text)
                 end
                 for _, text in ipairs(late) do
                     _messages[#_messages + 1] = { role = 'user', content = text }
-                    loop.push({ type = 'user_message', content = text })
+                    events.push({ type = 'user_message', content = text })
                 end
             end
         end
     end)
 
     if not ok then
-        loop.push({ type = 'status', content = 'Error: ' .. tostring(err) })
+        events.push({ type = 'status', content = 'Error: ' .. tostring(err) })
     end
 
-    loop.push({ type = 'agent_end' })
+    events.push({ type = 'agent_end' })
     _running = false
 end
 

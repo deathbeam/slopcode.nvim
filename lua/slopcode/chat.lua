@@ -3,7 +3,7 @@
 local M = {}
 
 local async = require('async')
-local loop = require('slopcode.loop')
+local renderer = require('slopcode.renderer')
 local agent = require('slopcode.agent')
 local catalog = require('slopcode.catalog')
 local config = require('slopcode.config')
@@ -136,7 +136,7 @@ end
 function M.open(opts)
     local wc = vim.tbl_extend('force', config.window, opts or {})
     local layout = wc.layout
-    local buf = loop.buf()
+    local buf = renderer.buf()
     if not (buf and vim.api.nvim_buf_is_valid(buf)) then
         buf = vim.api.nvim_create_buf(true, true)
     end
@@ -153,14 +153,14 @@ function M.open(opts)
 
     vim.schedule(function()
         setup_buffer(buf)
-        loop.attach(buf)
+        renderer.attach(buf)
         status.subheader1(config.model)
     end)
 end
 
 --- Close the chat window
 function M.close()
-    local buf = loop.buf()
+    local buf = renderer.buf()
     local win = vim_utils.win_for_buf(buf)
     if not win then
         return
@@ -179,7 +179,7 @@ end
 --- Toggle the chat window open/closed.
 --- @param opts? table  window options override
 function M.toggle(opts)
-    if vim_utils.win_for_buf(loop.buf()) then
+    if vim_utils.win_for_buf(renderer.buf()) then
         M.close()
     else
         M.open(opts)
