@@ -3,6 +3,7 @@
 --- Tests for slopcode tool handlers and tools.execute_all
 
 local child = MiniTest.new_child_neovim()
+local anchors = require('slopcode.anchors')
 
 -----------------------------------------------------------------------
 -- Helpers
@@ -42,15 +43,6 @@ end
 local function write_temp(path, content)
     local lines = vim.split(content, '\n', { plain = true })
     child.lua(string.format("vim.fn.writefile(%s, '%s')", vim.inspect(lines), path))
-end
-
---- Parse an anchored line to extract line number, hash, and content.
-local function parse_anchored_line(line)
-    local line_num, hash, content = line:match('^(%d+)(%l%l)|(.*)')
-    if line_num then
-        return tonumber(line_num), hash, content
-    end
-    return nil, nil, line
 end
 
 -----------------------------------------------------------------------
@@ -99,7 +91,7 @@ describe('read tool', function()
         local ok, result = run_handler('read', { path = '/tmp/slopcode_test_read.txt' })
         MiniTest.expect.equality(ok, true)
         -- Should have LINETAG|content format
-        local line_num, hash, content = parse_anchored_line(vim.trim(result))
+        local line_num, hash, content = anchors.parse(vim.trim(result))
         MiniTest.expect.equality(line_num, 1)
         MiniTest.expect.equality(content, 'hello world')
     end)
@@ -116,7 +108,7 @@ describe('read tool', function()
         ]])
         local ok, result = run_handler('read', { path = '/tmp/slopcode_test_buf_read.txt' })
         MiniTest.expect.equality(ok, true)
-        local line_num, hash, content = parse_anchored_line(vim.trim(result))
+        local line_num, hash, content = anchors.parse(vim.trim(result))
         MiniTest.expect.equality(line_num, 1)
         MiniTest.expect.equality(content, 'buf content')
     end)
@@ -164,7 +156,7 @@ describe('edit tool', function()
         MiniTest.expect.equality(ok_read, true)
 
         -- Get anchor for line 1
-        local line_num, hash, _ = parse_anchored_line(vim.trim(read_result))
+        local line_num, hash, _ = anchors.parse(vim.trim(read_result))
         MiniTest.expect.no_equality(hash, nil)
         local anchor = line_num .. hash
 
@@ -187,7 +179,7 @@ describe('edit tool', function()
         local ok_read, read_result = run_handler('read', { path = '/tmp/slopcode_test_edit_stale.txt' })
         MiniTest.expect.equality(ok_read, true)
 
-        local line_num, hash, _ = parse_anchored_line(vim.trim(read_result))
+        local line_num, hash, _ = anchors.parse(vim.trim(read_result))
         local anchor = line_num .. hash
 
         -- Modify file externally

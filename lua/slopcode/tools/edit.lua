@@ -114,7 +114,7 @@ return {
             end
 
             -- Strip hashline display prefixes from replacement lines (LLM mistake)
-            repl_lines = anchors.strip_hashline(repl_lines)
+            repl_lines = anchors.strip(repl_lines)
             normalized_edits[#normalized_edits + 1] = {
                 start_anchor = edit.start_anchor,
                 end_anchor = edit.end_anchor,
