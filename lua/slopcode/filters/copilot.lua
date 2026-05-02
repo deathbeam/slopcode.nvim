@@ -117,7 +117,8 @@ end
 local function fetch_copilot_models(token, base_url)
     local curl = require('slopcode.utils.curl')
 
-    local data, err = curl.json_get(base_url .. '/models', {
+    local data, err = curl.get(base_url .. '/models', {
+        json = true,
         headers = vim.tbl_extend('force', HEADERS, {
             ['Authorization'] = 'Bearer ' .. token,
         }),

@@ -12,7 +12,7 @@ return function(models)
     end
 
     local curl = require('slopcode.utils.curl')
-    local data, err = curl.json_get(BASE_URL .. '/models', { max_time = 10 })
+    local data, err = curl.get(BASE_URL .. '/models', { json = true, max_time = 10 })
     if err or type(data) ~= 'table' or type(data.data) ~= 'table' then
         return models
     end

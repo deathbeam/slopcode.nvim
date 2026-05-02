@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 
+local M = {}
+
 local async = require('async')
 
 --- Write content to a temporary file and return its path.
@@ -97,68 +99,63 @@ local function decode_json(body, on_exit)
     on_exit(data, nil)
 end
 
-return {
-    --- @param method string
-    --- @param url string
-    --- @param opts? table
-    --- @return { args: string[], _body_file: string?, cleanup: fun(self: table) }
-    cmd = function(method, url, opts)
-        local args, body_file = build_cmd(method, url, opts)
-        return {
-            args = args,
-            _body_file = body_file,
-            cleanup = function(self)
-                if self._body_file then
-                    os.remove(self._body_file)
-                    self._body_file = nil
-                end
-            end,
-        }
-    end,
-
-    --- @async
-    --- @param url string
-    --- @param opts? table
-    --- @return string body, string? err
-    get = async.wrap(3, function(url, opts, on_exit)
-        local args, body_file = build_cmd('GET', url, opts)
-        exec_async(args, body_file, on_exit)
-    end),
-
-    --- @async
-    --- @param url string
-    --- @param opts? table
-    --- @return string body, string? err
-    post = async.wrap(3, function(url, opts, on_exit)
-        local args, body_file = build_cmd('POST', url, opts)
-        exec_async(args, body_file, on_exit)
-    end),
-
-    --- @async
-    --- @param url string
-    --- @param opts? table
-    --- @return table data, string? err
-    json_get = async.wrap(3, function(url, opts, on_exit)
-        local args, body_file = build_cmd('GET', url, opts)
-        exec_async(args, body_file, function(body, err)
-            if err then
-                return on_exit(nil, err)
+--- @param method string
+--- @param url string
+--- @param opts? table
+--- @return { args: string[], _body_file: string?, cleanup: fun(self: table) }
+function M.cmd(method, url, opts)
+    local args, body_file = build_cmd(method, url, opts)
+    return {
+        args = args,
+        _body_file = body_file,
+        cleanup = function(self)
+            if self._body_file then
+                os.remove(self._body_file)
+                self._body_file = nil
             end
-            decode_json(body, on_exit)
-        end)
-    end),
+        end,
+    }
+end
 
-    --- @async
-    --- @param url string
-    --- @param opts? table
-    --- @return table data, string? err
-    json_post = async.wrap(3, function(url, opts, on_exit)
-        local args, body_file = build_cmd('POST', url, opts)
-        exec_async(args, body_file, function(body, err)
-            if err then
-                return on_exit(nil, err)
-            end
+--- @async
+--- @param url string
+--- @param opts? table
+--- @return string body, string? err
+M.get = async.wrap(3, function(url, opts, on_exit)
+    local args, body_file = build_cmd('GET', url, opts)
+    exec_async(args, body_file, on_exit)
+
+    exec_async(args, body_file, function(body, err)
+        if err then
+            return on_exit(nil, err)
+        end
+
+        if opts and opts.json then
             decode_json(body, on_exit)
-        end)
-    end),
-}
+        else
+            on_exit(body, nil)
+        end
+    end)
+end)
+
+--- @async
+--- @param url string
+--- @param opts? table
+--- @return string body, string? err
+M.post = async.wrap(3, function(url, opts, on_exit)
+    local args, body_file = build_cmd('POST', url, opts)
+
+    exec_async(args, body_file, function(body, err)
+        if err then
+            return on_exit(nil, err)
+        end
+
+        if opts and opts.json then
+            decode_json(body, on_exit)
+        else
+            on_exit(body, nil)
+        end
+    end)
+end)
+
+return M

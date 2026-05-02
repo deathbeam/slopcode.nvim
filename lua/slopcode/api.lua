@@ -142,7 +142,7 @@ function M.complete(messages, opts)
     headers['Content-Type'] = 'application/json'
 
     local curl = require('slopcode.utils.curl')
-    local data, err = curl.json_post(url, { headers = headers, body = body, max_time = 300 })
+    local data, err = curl.post(url, { json = true, headers = headers, body = body, max_time = 300 })
     if err then
         error(err)
     end
