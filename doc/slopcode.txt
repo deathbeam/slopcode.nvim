@@ -9,6 +9,7 @@ Table of Contents                                 *slopcode-table-of-contents*
   - how                                                         |slopcode-how|
   - keybindings                                         |slopcode-keybindings|
   - configuration                                     |slopcode-configuration|
+  - i have a problem                               |slopcode-i-have-a-problem|
   - license                                                 |slopcode-license|
 
 
@@ -68,6 +69,12 @@ CONFIGURATION                                         *slopcode-configuration*
 - environment variables for API keys: `OPENAI_API_KEY`, `OLLAMA_API_KEY`, etc, see models.dev <https://models.dev>
 - for copilot, copilot.vim <https://github.com/github/copilot.vim> is needed for auth
 - full config is here <lua/slopcode/config.lua>
+
+
+I HAVE A PROBLEM                                   *slopcode-i-have-a-problem*
+
+- |slopcode.txt|
+- `:checkhealth slopcode`
 
 
 LICENSE                                                     *slopcode-license*
