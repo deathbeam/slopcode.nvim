@@ -231,7 +231,7 @@ function M.omnifunc(findstart, base)
             if query == '' or name:lower():find(query:lower(), 1, true) then
                 items[#items + 1] = {
                     word = '/' .. name,
-                    menu = skill.description or '',
+                    info = skill.description or '',
                     abbr = name,
                     kind = 'skill',
                 }
