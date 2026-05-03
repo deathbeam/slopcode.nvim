@@ -44,8 +44,13 @@ Current working directory: ${CWD}]],
     --- @type string[] list of file paths to include in the system prompt context
     context = {
         'AGENTS.md',
-        'CLAUDE.md',
-        '.github/copilot-instructions.md',
+        '~/.agents/AGENTS.md',
+    },
+
+    --- @type string[] list of skill directories
+    skills = {
+        '.agents/skills',
+        '~/.agents/skills',
     },
 
     --- @type table<string, table> tool implementations that can be called by the model

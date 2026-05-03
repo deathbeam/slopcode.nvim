@@ -190,7 +190,7 @@ function M.abort()
     agent.abort()
 end
 
---- Omnifunc for @path completion in the prompt buffer.
+--- Omnifunc for @path and /skill completion in the prompt buffer.
 --- @param findstart integer  1 to find start column, 0 to get completions
 --- @param base string  Text being completed
 --- @return integer|string|table
@@ -198,23 +198,44 @@ function M.omnifunc(findstart, base)
     local line = vim.api.nvim_get_current_line()
     local col = vim.api.nvim_win_get_cursor(0)[2]
     if findstart == 1 then
-        local at = line:sub(1, col + 1):match('.*(@%S*)$')
-        return at and (col - #at) or -3
+        local trigger = line:sub(1, col + 1):match('.*([@/]%S*)$')
+        return trigger and (col - #trigger) or -3
     end
-    local query = (base ~= '' and base or line:sub(1, col)):match('^@(.*)') or ''
+
+    local char = base:sub(1, 1)
     local items = {}
-    for _, b in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_is_loaded(b) and vim.fn.buflisted(b) == 1 then
-            local name = vim.api.nvim_buf_get_name(b)
-            local rel = vim.fn.fnamemodify(name, ':.')
-            if query == '' or rel:find(query, 1, true) then
-                items[#items + 1] = { word = '@' .. rel, menu = 'buf:' .. b, abbr = rel }
+
+    if char == '@' then
+        -- @path completion
+        local query = base:sub(2)
+        for _, b in ipairs(vim.api.nvim_list_bufs()) do
+            if vim.api.nvim_buf_is_loaded(b) and vim.fn.buflisted(b) == 1 then
+                local name = vim.api.nvim_buf_get_name(b)
+                local rel = vim.fn.fnamemodify(name, ':.')
+                if query == '' or rel:find(query, 1, true) then
+                    items[#items + 1] = { word = '@' .. rel, menu = 'buf:' .. b, abbr = rel }
+                end
+            end
+        end
+        for _, f in ipairs(vim.fn.getcompletion(query, 'file')) do
+            items[#items + 1] = { word = '@' .. f, menu = 'file', abbr = f }
+        end
+    elseif char == '/' then
+        -- /command completion
+        local query = base:sub(2)
+        local skills = async.run(require('slopcode.skills').build):wait()
+        for _, skill in ipairs(skills) do
+            local name = skill.name or ''
+            if query == '' or name:lower():find(query:lower(), 1, true) then
+                items[#items + 1] = {
+                    word = '/' .. name,
+                    menu = skill.description or '',
+                    abbr = name,
+                }
             end
         end
     end
-    for _, f in ipairs(vim.fn.getcompletion(query, 'file')) do
-        items[#items + 1] = { word = '@' .. f, menu = 'file', abbr = f }
-    end
+
     return #items > 0 and items or -3
 end
 
