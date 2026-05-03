@@ -28,6 +28,7 @@ return function(models)
             contextWindow = m.context_length or 128000,
             maxTokens = m.max_completion_tokens or 8192,
             reasoning = reasoning,
+            temperature = true,
             tools = true,
             input = { 'text' },
             env = { 'CROFAI_API_KEY' },
