@@ -47,7 +47,7 @@ return {
     --- @param model string
     --- @param messages table[]
     --- @param tool_defs table[]
-    --- @param opts { temperature: number?, max_tokens: integer?, stream: boolean? }
+    --- @param opts { temperature: number?, reasoning_effort: string?, max_tokens: integer?, stream: boolean? }
     --- @return table
     build_body = function(model, messages, tool_defs, opts)
         local instructions, input = convert_messages(messages)
@@ -58,6 +58,13 @@ return {
 
         if opts.temperature ~= nil then
             body.temperature = opts.temperature
+        end
+
+        if opts.reasoning_effort ~= nil then
+            body.reasoning = {
+                effort = opts.reasoning_effort,
+                summary = "auto"
+            }
         end
 
         if opts.max_tokens ~= nil then
