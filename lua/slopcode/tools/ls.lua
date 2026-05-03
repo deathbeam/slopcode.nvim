@@ -5,7 +5,7 @@ local text = require('slopcode.utils.text')
 return {
     promptSnippet = 'List directory contents',
 
-    description = 'List directory contents. Shows file names with type indicators (/ for dirs, * for executables).',
+    description = 'List directory contents. Shows file names with type indicators (/ for dirs, * for executables, @ for symlinks).',
 
     parameters = {
         type = 'object',

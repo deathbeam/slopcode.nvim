@@ -32,9 +32,9 @@ local function edit_response(new_lines, first_changed, last_changed)
 end
 
 return {
-    promptSnippet = 'Edit a text file via hashline anchors from read',
+    promptSnippet = 'Edit a text file via hashline anchors from read and grep',
 
-    description = 'Edit a file using anchor-based line targeting. Each edit specifies start_anchor and end_anchor (from the read output, e.g. "5ab") and a replacement array of lines. Lines from start_anchor to end_anchor (inclusive) are replaced. This is more token-efficient than repeating old code — you only emit the new content.',
+    description = 'Edit a file using anchor-based line targeting. Each edit specifies start_anchor and end_anchor (from the read output, e.g. "5ab") and a replacement array of lines. Lines from start_anchor to end_anchor (inclusive) are replaced.',
 
     parameters = {
         type = 'object',
