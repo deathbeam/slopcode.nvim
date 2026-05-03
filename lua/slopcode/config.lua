@@ -4,6 +4,12 @@ return {
     --- @type string provider/model identifier, e.g. 'openai/gpt-4' or 'ollama-cloud/glm-5.1'
     model = 'ollama-cloud/glm-5.1',
 
+    --- @type decimal?
+    temperature = nil,
+
+    --- @type 'none' | 'low' | 'medium' | 'high'
+    reasoning_effort = 'medium',
+
     display = {
         --- @type 'vsplit' | 'hsplit' | 'replace'
         layout = 'vsplit',

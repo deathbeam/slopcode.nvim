@@ -32,10 +32,10 @@ local function dispatch_chunk(event, state, opts)
     end
 end
 
---- Stream a completion request via SSE. Returns a SystemObj (use :kill() to abort).
+--- Stream a completion request via SSE
 --- @param messages table[]
 --- @param tools table tool definitions
---- @param opts table { model, parser, on_content, on_reasoning, on_done, on_error }
+--- @param opts table { temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_error }
 --- @return vim.SystemObj
 function M.stream(messages, tools, opts)
     local model, parser = opts.model, opts.parser
@@ -44,11 +44,20 @@ function M.stream(messages, tools, opts)
         error('No model/parser provided')
     end
 
-    local body = parser.build_body(model.id, messages, tools, {
-        temperature = 0.1,
+    local req = {
+        stream = true,
         max_tokens = model.maxTokens or 4096,
-    })
+    }
 
+    if opts.temperature ~= nil and model.temperature then
+        req.temperature = opts.temperature
+    end
+
+    if opts.reasoning_effort ~= nil and model.reasoning then
+        req.reasoning_effort = opts.reasoning_effort
+    end
+
+    local body = parser.build_body(model.id, messages, tools, req)
     local url = model.url
     local headers = type(model.headers) == 'function' and model:headers() or model.headers or {}
     headers['Content-Type'] = 'application/json'
@@ -123,7 +132,7 @@ end
 --- Non-streaming completion request.
 --- @async
 --- @param messages table[]
---- @param opts table
+--- @param opts table { model, parser }
 --- @return table
 function M.complete(messages, opts)
     local model, parser = opts.model, opts.parser
@@ -132,10 +141,10 @@ function M.complete(messages, opts)
     end
 
     local body = parser.build_body(model.id, messages, {}, {
+        stream = false,
         temperature = 0.1,
         max_tokens = model.maxTokens or 4096,
     })
-    body.stream = false
 
     local url = model.url
     local headers = type(model.headers) == 'function' and model:headers() or model.headers or {}
@@ -146,6 +155,7 @@ function M.complete(messages, opts)
     if err then
         error(err)
     end
+
     return data
 end
 

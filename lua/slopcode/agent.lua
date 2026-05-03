@@ -48,6 +48,8 @@ local function stream_turn(model, parser)
 
     local result = async.await(function(resolve)
         local ok, job_or_err = pcall(api.stream, api_messages, tools.get_definitions(), {
+            temperature = config.temperature,
+            reasoning_effort = config.reasoning_effort,
             model = model,
             parser = parser,
             on_reasoning = function(chunk)
@@ -97,7 +99,7 @@ local function stream_turn(model, parser)
         _job = job_or_err
     end)
 
-    loop.drain() -- flush stream deltas before proceeding
+    loop.drain()
 
     loop.push({
         type = 'stream_end',

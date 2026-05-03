@@ -47,22 +47,33 @@ return {
     --- @param model string
     --- @param messages table[]
     --- @param tool_defs table[]
-    --- @param opts { temperature: number?, max_tokens: integer? }
+    --- @param opts { temperature: number?, max_tokens: integer?, stream: boolean? }
     --- @return table
     build_body = function(model, messages, tool_defs, opts)
         local instructions, input = convert_messages(messages)
         local body = {
             model = model,
-            stream = true,
             store = false,
-            max_output_tokens = opts.max_tokens,
         }
-        if opts.temperature then
+
+        if opts.temperature ~= nil then
             body.temperature = opts.temperature
         end
+
+        if opts.max_tokens ~= nil then
+            body.max_output_tokens = opts.max_tokens
+        end
+
+        if opts.stream then
+            body.stream = true
+        else
+            body.stream = false
+        end
+
         if instructions then
             body.instructions = instructions
         end
+
         body.input = input
         if #tool_defs > 0 then
             body.tools = {}

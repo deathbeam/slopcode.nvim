@@ -87,6 +87,7 @@ local function transform(raw)
                         contextWindow = limits.context or 128000,
                         maxTokens = limits.output or 8192,
                         reasoning = mdata.reasoning == true,
+                        temperature = mdata.temperature == true,
                         tools = true,
                         input = mods.input or { 'text' },
                         cost = {

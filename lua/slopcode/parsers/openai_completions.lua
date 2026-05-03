@@ -20,7 +20,7 @@ return {
     --- @param model string
     --- @param messages table[]
     --- @param tool_defs table[]
-    --- @param opts { temperature: number?, max_tokens: integer? }
+    --- @param opts { temperature: number?, max_tokens: integer?, stream: boolean? }
     --- @return table
     build_body = function(model, messages, tool_defs, opts)
         -- Ensure assistant messages with tool_calls have content (some providers require it)
@@ -33,11 +33,24 @@ return {
         local body = {
             model = model,
             messages = messages,
-            stream = true,
-            stream_options = { include_usage = true },
-            temperature = opts.temperature,
-            max_tokens = opts.max_tokens,
+            store = false,
         }
+
+        if opts.temperature ~= nil then
+            body.temperature = opts.temperature
+        end
+
+        if opts.max_tokens ~= nil then
+            body.max_tokens = opts.max_tokens
+        end
+
+        if opts.stream then
+            body.stream = true
+            body.stream_options = { include_usage = true }
+        else
+            body.stream = false
+        end
+
         if #tool_defs > 0 then
             body.tools = {}
             body.tool_choice = 'auto'
