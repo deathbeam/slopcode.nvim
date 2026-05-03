@@ -53,6 +53,11 @@ config.display.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
 - for copilot, [copilot.vim](https://github.com/github/copilot.vim) is needed for auth
 - [full config is here](lua/slopcode/config.lua)
 
+## i have a problem
+
+- `:h slopcode.txt`
+- `:checkhealth slopcode`
+
 ## license
 
 GPL-2.0
