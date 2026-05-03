@@ -198,8 +198,8 @@ function M.omnifunc(findstart, base)
     local line = vim.api.nvim_get_current_line()
     local col = vim.api.nvim_win_get_cursor(0)[2]
     if findstart == 1 then
-        local trigger = line:sub(1, col + 1):match('.*([@/]%S*)$')
-        return trigger and (col - #trigger) or -3
+        local trigger = line:sub(1, col + 1):match('.*()@%S*$') or line:sub(1, col + 1):match('.*()/%S*$')
+        return trigger and (tonumber(trigger) - 1) or -3
     end
 
     local char = base:sub(1, 1)
@@ -211,14 +211,16 @@ function M.omnifunc(findstart, base)
         for _, b in ipairs(vim.api.nvim_list_bufs()) do
             if vim.api.nvim_buf_is_loaded(b) and vim.fn.buflisted(b) == 1 then
                 local name = vim.api.nvim_buf_get_name(b)
-                local rel = vim.fn.fnamemodify(name, ':.')
-                if query == '' or rel:find(query, 1, true) then
-                    items[#items + 1] = { word = '@' .. rel, menu = 'buf:' .. b, abbr = rel }
+                if name and name ~= '' then
+                    local rel = vim.fn.fnamemodify(name, ':.')
+                    if query == '' or rel:find(query, 1, true) then
+                        items[#items + 1] = { word = '@' .. rel, abbr = rel, kind = 'buffer' }
+                    end
                 end
             end
         end
         for _, f in ipairs(vim.fn.getcompletion(query, 'file')) do
-            items[#items + 1] = { word = '@' .. f, menu = 'file', abbr = f }
+            items[#items + 1] = { word = '@' .. f, abbr = f, kind = 'file' }
         end
     elseif char == '/' then
         -- /command completion
@@ -231,6 +233,7 @@ function M.omnifunc(findstart, base)
                     word = '/' .. name,
                     menu = skill.description or '',
                     abbr = name,
+                    kind = 'skill',
                 }
             end
         end
