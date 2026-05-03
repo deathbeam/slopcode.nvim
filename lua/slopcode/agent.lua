@@ -183,8 +183,9 @@ function M.run(user_text)
     local ok, err = pcall(function()
         while true do
             -- Compact history
-            local compacted, did_compact = memory.compact(_messages, { model = model, parser = parser })
-            if did_compact then
+            if memory.should_compact(_messages, model.contextWindow) then
+                loop.push({ type = 'status', content = 'Compacting context...' })
+                local compacted = memory.compact(_messages, { model = model, parser = parser })
                 for k in pairs(_messages) do
                     _messages[k] = nil
                 end
@@ -214,7 +215,7 @@ function M.run(user_text)
                 cache_read = _usage.cache_read,
                 cache_write = _usage.cache_write,
                 pct = model.contextWindow and (memory.estimate(_messages) / model.contextWindow * 100) or 0,
-                window = model.contextWindow or 128000,
+                window = model.contextWindow,
             })
 
             -- Handle result

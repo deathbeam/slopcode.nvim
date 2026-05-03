@@ -46,7 +46,7 @@ function M.stream(messages, tools, opts)
 
     local req = {
         stream = true,
-        max_tokens = model.maxTokens or 4096,
+        max_tokens = model.maxTokens,
     }
 
     if opts.temperature ~= nil and model.temperature then
@@ -160,7 +160,7 @@ function M.complete(messages, opts)
     local body = parser.build_body(model.id, messages, {}, {
         stream = false,
         temperature = 0.1,
-        max_tokens = model.maxTokens or 4096,
+        max_tokens = model.maxTokens,
     })
 
     local url = model.url

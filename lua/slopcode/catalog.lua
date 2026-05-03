@@ -162,6 +162,12 @@ function M.build()
         if not m.url or m.url == '' or not m.parser or not m.headers then
             table.remove(models, i)
         end
+        if not m.contextWindow then
+            m.contextWindow = 128000
+        end
+        if not m.maxTokens then
+            m.maxTokens = 4096
+        end
     end
 
     _cached_models = models

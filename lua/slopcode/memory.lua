@@ -4,6 +4,9 @@ local M = {}
 
 local api = require('slopcode.api')
 
+local KEEP_RECENT = 6
+local SUMMARY_POINT = 0.75
+
 -- Based on: https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/utils/tokenCalculation.ts
 local ASCII_TOKENS_PER_CHAR = 0.25
 local NON_ASCII_TOKENS_PER_CHAR = 1.3
@@ -56,29 +59,25 @@ function M.estimate(messages)
     return math.floor(total)
 end
 
+--- Check if messages exceed the context window threshold and should be compacted.
+--- @param messages table[]
+--- @param context_window integer
+--- @return boolean
+function M.should_compact(messages, context_window)
+    return M.estimate(messages) >= math.floor(context_window * SUMMARY_POINT) and #messages > KEEP_RECENT + 1
+end
+
 --- Compact messages when they exceed the context window.
 --- @async
 --- @param messages table[]
 --- @param opts { model: table, parser: table }
---- @return table[] compacted, boolean did_compact
+--- @return table[] compacted
 function M.compact(messages, opts)
-    local model, parser = opts.model, opts.parser
-    if not model or not parser then
-        error('No model/parser provided', 0)
-    end
-
-    local context_window = model.contextWindow or 128000
-    local max_tokens = math.floor(context_window * 0.75)
-    local keep_recent = 6
-
-    if M.estimate(messages) < max_tokens or #messages <= keep_recent + 1 then
-        return messages, false
-    end
-
+    local parser = opts.parser
     local start = messages[1] and messages[1].role == 'system' and 2 or 1
-    local end_idx = #messages - keep_recent
+    local end_idx = #messages - KEEP_RECENT
     if end_idx < start then
-        return messages, false
+        return messages
     end
 
     local to_summarize = {}
@@ -106,10 +105,10 @@ function M.compact(messages, opts)
         new_messages[1] = messages[1]
     end
     new_messages[#new_messages + 1] = { role = 'user', content = summary }
-    for i = #messages - keep_recent + 1, #messages do
+    for i = #messages - KEEP_RECENT + 1, #messages do
         new_messages[#new_messages + 1] = messages[i]
     end
-    return new_messages, true
+    return new_messages
 end
 
 return M

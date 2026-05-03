@@ -50,7 +50,7 @@ return function(models)
         local name = m.name or m.model or ''
         if name ~= '' then
             name = name:gsub(':latest$', '')
-            local ctx = ctx_from_param_size(m.details and m.details.parameter_size) or 128000
+            local ctx = ctx_from_param_size(m.details and m.details.parameter_size)
             models[#models + 1] = {
                 id = name,
                 name = name,
