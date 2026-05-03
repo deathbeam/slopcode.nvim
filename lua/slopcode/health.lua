@@ -71,14 +71,14 @@ function M.check()
 
     local rg_version = run_command('rg', '--version')
     if rg_version == false then
-        warn('rg: missing, required for search and skills. See "https://github.com/BurntSushi/ripgrep".')
+        error('rg: missing, required for search and skills. See "https://github.com/BurntSushi/ripgrep".')
     else
         ok('rg: ' .. rg_version)
     end
 
     local lynx_version = run_command('lynx', '-version')
     if lynx_version == false then
-        warn('lynx: missing, required for fetching urls. See "https://lynx.invisible-island.net/".')
+        error('lynx: missing, required for fetching urls. See "https://lynx.invisible-island.net/".')
     else
         ok('lynx: ' .. lynx_version)
     end
