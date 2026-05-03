@@ -35,7 +35,7 @@ WHY                                                             *slopcode-why*
 
 HOW                                                             *slopcode-how*
 
-needs neovim 0.12+, curl, and ripgrep.
+needs neovim 0.12+, curl, lynx and ripgrep.
 
 >lua
     vim.pack.add({
