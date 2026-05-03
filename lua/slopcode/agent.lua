@@ -15,10 +15,8 @@ local loop = require('slopcode.loop')
 local _messages = {}
 --- @type boolean
 local _running = false
---- @type vim.SystemObj?
-local _job = nil
---- @type boolean
-local _aborted = false
+--- @type function?
+local _cancel_fn = nil
 --- @type string[]  queued user messages to inject before next turn
 local _queue = {}
 --- @type { requests: integer, input: integer, output: integer, cache_read: integer, cache_write: integer }
@@ -46,8 +44,8 @@ local function stream_turn(model, parser)
 
     loop.push({ type = 'stream_start' })
 
-    local result = async.await(function(resolve)
-        local ok, job_or_err = pcall(api.stream, api_messages, tools.get_definitions(), {
+    local r = async.await(function(resolve)
+        local ok, cancel_fn = pcall(api.stream, api_messages, tools.get_definitions(), {
             temperature = config.temperature,
             reasoning_effort = config.reasoning_effort,
             model = model,
@@ -60,56 +58,47 @@ local function stream_turn(model, parser)
                 response_text = response_text .. chunk
                 loop.push({ type = 'content_delta', content = chunk })
             end,
-            on_done = function(r)
-                _job = nil
-                if _aborted then
-                    _aborted = false
-                    resolve({ aborted = true })
-                else
-                    r.content = response_text
-                    r.reasoning = reasoning_text
-                    -- Accumulate usage from the result
-                    if r.usage then
-                        _usage.requests = _usage.requests + 1
-                        _usage.input = _usage.input
-                            + (r.usage.input_tokens or r.usage.prompt_tokens or r.usage.input or 0)
-                        _usage.output = _usage.output
-                            + (r.usage.output_tokens or r.usage.completion_tokens or r.usage.output or 0)
-                        _usage.cache_read = _usage.cache_read
-                            + (r.usage.cache_read_input_tokens or r.usage.cache_read or 0)
-                        _usage.cache_write = _usage.cache_write
-                            + (r.usage.cache_creation_input_tokens or r.usage.cache_write or 0)
-                    end
-                    resolve(r)
-                end
+            on_done = function(result)
+                result.content = response_text
+                result.reasoning = reasoning_text
+                resolve(result)
+            end,
+            on_abort = function()
+                resolve({ aborted = true })
             end,
             on_error = function(err)
-                _job = nil
-                if _aborted then
-                    _aborted = false
-                    resolve({ aborted = true })
-                else
-                    resolve({ error = err })
-                end
+                resolve({ error = err })
             end,
         })
-        if not ok then
-            resolve({ error = tostring(job_or_err) })
+
+        if not ok or type(cancel_fn) ~= 'function' then
+            resolve({ error = tostring(cancel_fn) })
             return
         end
-        _job = job_or_err
+
+        _cancel_fn = cancel_fn
     end)
+
+    _cancel_fn = nil
+
+    if r.usage then
+        _usage.requests = _usage.requests + 1
+        _usage.input = _usage.input + (r.usage.input_tokens or r.usage.prompt_tokens or r.usage.input or 0)
+        _usage.output = _usage.output + (r.usage.output_tokens or r.usage.completion_tokens or r.usage.output or 0)
+        _usage.cache_read = _usage.cache_read + (r.usage.cache_read_input_tokens or r.usage.cache_read or 0)
+        _usage.cache_write = _usage.cache_write + (r.usage.cache_creation_input_tokens or r.usage.cache_write or 0)
+    end
 
     loop.drain()
 
     loop.push({
         type = 'stream_end',
-        result = result,
-        error = result.error,
-        aborted = result.aborted,
+        result = r,
+        error = r.error,
+        aborted = r.aborted,
     })
 
-    return result
+    return r
 end
 
 --- Is the agent currently running?
@@ -126,11 +115,12 @@ end
 
 --- Abort the current run.
 function M.abort()
-    _aborted = true
-    if _job then
-        pcall(_job.kill, _job)
-        _job = nil
+    if not _cancel_fn then
+        return
     end
+
+    _cancel_fn()
+    _cancel_fn = nil
 end
 
 --- Reset conversation state.
@@ -138,9 +128,8 @@ function M.reset()
     for k in pairs(_messages) do
         _messages[k] = nil
     end
-    _aborted = false
     _running = false
-    _job = nil
+    _cancel_fn = nil
     for k in pairs(_queue) do
         _queue[k] = nil
     end

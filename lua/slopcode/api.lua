@@ -35,8 +35,8 @@ end
 --- Stream a completion request via SSE
 --- @param messages table[]
 --- @param tools table tool definitions
---- @param opts table { temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_error }
---- @return vim.SystemObj
+--- @param opts table { temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
+--- @return function  cancel_fn
 function M.stream(messages, tools, opts)
     local model, parser = opts.model, opts.parser
     if not model or not parser then
@@ -69,11 +69,12 @@ function M.stream(messages, tools, opts)
     local state = { content = '', reasoning = '', tool_calls = {}, parser = parser }
     local sse_buffer = ''
     local completed = false
+    local aborted = false
 
-    local obj = vim.system(c.args, {
+    local job = vim.system(c.args, {
         text = true,
         stdout = function(err, data)
-            if err or not data then
+            if err or not data or aborted then
                 return
             end
             sse_buffer = sse_buffer .. data
@@ -96,37 +97,47 @@ function M.stream(messages, tools, opts)
                 dispatch_chunk(event, state, opts)
             end
         end
-        if not completed then
-            completed = true
 
-            if result.code ~= 0 then
-                local err_msg = vim.trim(result.stderr or '')
-                if err_msg == '' then
-                    err_msg = 'curl exited with code ' .. result.code
-                end
-                opts.on_error(err_msg)
-            elseif state.finish_reason and state.finish_reason:find('^error') then
-                opts.on_error(state.finish_reason)
-            elseif state.finish_reason == nil and state.content == '' and #state.tool_calls == 0 then
-                local err_msg = vim.trim(sse_buffer or '')
-                if err_msg == '' then
-                    err_msg = 'curl response ended without content or finish reason'
-                end
-                opts.on_error(err_msg)
-            else
-                opts.on_done({
-                    content = state.content or '',
-                    reasoning = state.reasoning or '',
-                    tool_calls = state.tool_calls or {},
-                    finish_reason = state.finish_reason,
-                    usage = state.usage,
-                    response_id = state.response_id,
-                })
+        if aborted then
+            opts.on_abort()
+            return
+        end
+
+        if completed then
+            return
+        end
+
+        completed = true
+        if result.code ~= 0 then
+            local err_msg = vim.trim(result.stderr or '')
+            if err_msg == '' then
+                err_msg = 'curl exited with code ' .. result.code
             end
+            opts.on_error(err_msg)
+        elseif state.finish_reason and state.finish_reason:find('^error') then
+            opts.on_error(state.finish_reason)
+        elseif state.finish_reason == nil and state.content == '' and #state.tool_calls == 0 then
+            local err_msg = vim.trim(sse_buffer or '')
+            if err_msg == '' then
+                err_msg = 'curl response ended without content or finish reason'
+            end
+            opts.on_error(err_msg)
+        else
+            opts.on_done({
+                content = state.content or '',
+                reasoning = state.reasoning or '',
+                tool_calls = state.tool_calls or {},
+                finish_reason = state.finish_reason,
+                usage = state.usage,
+                response_id = state.response_id,
+            })
         end
     end)
 
-    return obj
+    return function()
+        aborted = true
+        pcall(job.kill, job)
+    end
 end
 
 --- Non-streaming completion request.
