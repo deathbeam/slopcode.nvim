@@ -52,6 +52,9 @@ KEYBINDINGS                                             *slopcode-keybindings*
 - `<C-c>` to abort
 - `<Tab>` to switch model
 
+use `@<path_or_buffer>` to reference files, `/<skill_name>` to manually
+activate skills
+
 
 CONFIGURATION                                         *slopcode-configuration*
 
