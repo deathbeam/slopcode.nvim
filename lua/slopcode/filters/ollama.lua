@@ -1,8 +1,7 @@
 -- SPDX-License-Identifier: GPL-2.0-only
 
-local LOCAL_URL = 'http://localhost:11434'
+local BASE_URL = 'http://localhost:11434'
 
---- Estimate context window size from Ollama's parameter_size string.
 --- @param ps string?
 --- @return integer?
 local function ctx_from_param_size(ps)
@@ -31,21 +30,23 @@ local function ctx_from_param_size(ps)
     return 4096
 end
 
---- Fetch locally running Ollama models from the daemon API.
 --- @async
---- @return table[]?
-local function fetch_local_models()
+--- @param models table[]
+--- @return table[]
+return function(models)
+    for i = #models, 1, -1 do
+        if models[i].provider == 'ollama' then
+            table.remove(models, i)
+        end
+    end
+
     local curl = require('slopcode.utils.curl')
-    local body, err = curl.get(LOCAL_URL .. '/api/tags', { max_time = 5 })
-    if err then
-        return nil
+    local data, err = curl.get(BASE_URL .. '/api/tags', { json = true, max_time = 10 })
+    if err or type(data) ~= 'table' or type(data.models) ~= 'table' then
+        return models
     end
-    local ok, parsed = pcall(vim.json.decode, body, { luanil = { object = true, array = true } })
-    if not ok or type(parsed) ~= 'table' or type(parsed.models) ~= 'table' then
-        return nil
-    end
-    local models = {}
-    for _, m in ipairs(parsed.models) do
+
+    for _, m in ipairs(data.models) do
         local name = m.name or m.model or ''
         if name ~= '' then
             name = name:gsub(':latest$', '')
@@ -55,37 +56,14 @@ local function fetch_local_models()
                 name = name,
                 provider = 'ollama',
                 parser = 'openai_completions',
-                baseUrl = LOCAL_URL .. '/v1',
+                baseUrl = BASE_URL .. '/v1',
                 contextWindow = ctx,
                 maxTokens = 8192,
                 reasoning = false,
                 tools = true,
                 input = { 'text' },
-                env = { 'OLLAMA_API_KEY' },
             }
         end
-    end
-    return models
-end
-
---- @async
---- @param models table[]
---- @return table[]
-return function(models)
-    -- Remove stale ollama entries from a previous invocation
-    for i = #models, 1, -1 do
-        if models[i].provider == 'ollama' then
-            table.remove(models, i)
-        end
-    end
-
-    local local_models = fetch_local_models()
-    if not local_models then
-        return models
-    end
-
-    for _, m in ipairs(local_models) do
-        models[#models + 1] = m
     end
 
     return models
