@@ -11,6 +11,7 @@ Table of Contents                                 *slopcode-table-of-contents*
   - configuration                                     |slopcode-configuration|
   - i have a problem                               |slopcode-i-have-a-problem|
   - license                                                 |slopcode-license|
+  - image                                                     |slopcode-image|
 
 
 WHAT                                                           *slopcode-what*
@@ -78,7 +79,10 @@ I HAVE A PROBLEM                                   *slopcode-i-have-a-problem*
 
 LICENSE                                                     *slopcode-license*
 
-GPL-2.0
+MIT
+
+
+IMAGE                                                         *slopcode-image*
 
 
 
