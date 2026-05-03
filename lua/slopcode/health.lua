@@ -1,3 +1,5 @@
+-- SPDX-License-Identifier: GPL-2.0-only
+
 local M = {}
 
 local start = vim.health.start
@@ -5,9 +7,9 @@ local error = vim.health.error
 local warn = vim.health.warn
 local ok = vim.health.ok
 
---- Run a command and handle potential errors
 ---@param executable string
 ---@param command string
+---@return string|boolean
 local function run_command(executable, command)
     local is_present = vim.fn.executable(executable)
     if is_present == 0 then
@@ -22,7 +24,6 @@ local function run_command(executable, command)
     end
 end
 
---- Check if a Lua library is installed
 ---@param lib_name string
 ---@return boolean
 local function lualib_installed(lib_name)
