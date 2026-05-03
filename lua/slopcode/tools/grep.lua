@@ -86,8 +86,7 @@ local function parse_rg_json(json_lines, context, max_line_len, base_path)
         local text = text.line(m.text, max_line_len)
         if m.is_match then
             match_count = match_count + 1
-            local hash = anchors.hash(m.line_num, m.text)
-            formatted[#formatted + 1] = m.file .. ':' .. m.line_num .. anchors.hash(m.line_num, m.text) .. '|' .. text
+            formatted[#formatted + 1] = m.file .. ':' .. anchors.format(m.line_num, m.text) .. text
         else
             formatted[#formatted + 1] = m.file .. '-' .. m.line_num .. '- ' .. text
         end
