@@ -22,7 +22,7 @@ inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the 
 
 ## how
 
-needs neovim 0.12+, curl, and ripgrep.
+needs neovim 0.12+, curl, lynx and ripgrep.
 
 ```lua
 vim.pack.add({
