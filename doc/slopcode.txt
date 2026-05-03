@@ -31,7 +31,7 @@ WHY                                                             *slopcode-why*
 - **native** - prompt buffer for input, folds for output, winbar for model name and spinner, busy indicator in the statusline, markdown for visuals, vim tool integration
 - **memory compaction** - auto-summarizes old messages at 75% context window so long sessions don’t explode
 - **model catalog** - fetches models from models.dev <https://models.dev> + bunch of extra in filters </lua/slopcode/filters/>
-- **extensible** - tool registry (but no mcp as it sucks), agents.md <https://agents.md/> and skills.sh <https://skills.sh/> support, plug in whatever you need
+- **extensible** - tool registry (but no MCP <https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/>), agents.md <https://agents.md/> and skills.sh <https://skills.sh/> support, plug in whatever you need
 
 
 HOW                                                             *slopcode-how*
