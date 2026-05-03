@@ -21,8 +21,8 @@ local _job = nil
 local _aborted = false
 --- @type string[]  queued user messages to inject before next turn
 local _queue = {}
---- @type { input: integer, output: integer, cache_read: integer, cache_write: integer }
-local _usage = { input = 0, output = 0, cache_read = 0, cache_write = 0 }
+--- @type { requests: integer, input: integer, output: integer, cache_read: integer, cache_write: integer }
+local _usage = { requests = 0, input = 0, output = 0, cache_read = 0, cache_write = 0 }
 
 --- @async
 --- Stream one turn from the API.
@@ -70,6 +70,7 @@ local function stream_turn(model, parser)
                     r.reasoning = reasoning_text
                     -- Accumulate usage from the result
                     if r.usage then
+                        _usage.requests = _usage.requests + 1
                         _usage.input = _usage.input
                             + (r.usage.input_tokens or r.usage.prompt_tokens or r.usage.input or 0)
                         _usage.output = _usage.output
@@ -214,6 +215,7 @@ function M.run(user_text)
             -- Update usage
             loop.push({
                 type = 'usage',
+                requests = _usage.requests,
                 input = _usage.input,
                 output = _usage.output,
                 cache_read = _usage.cache_read,

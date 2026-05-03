@@ -131,6 +131,9 @@ local function format_usage(usage)
     end
 
     local parts = {}
+    if usage.requests > 0 then
+        parts[#parts + 1] = ' ' .. usage.requests
+    end
     if usage.input > 0 then
         parts[#parts + 1] = '↑' .. format_tokens(usage.input)
     end
