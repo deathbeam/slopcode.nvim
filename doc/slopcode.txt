@@ -25,13 +25,12 @@ tells it to. use at your own risk (or use script like this
 WHY                                                             *slopcode-why*
 
 - **game-like main loop** — push events, drain on a 16ms tick. feels like a game engine for chat, because why not
-- **hashline-anchored edits** — stateless line hashing so the LLM references anchors in edit calls instead of repeating old code
+- **hash-anchored edits** — stateless line hashing so the LLM references anchors in edit calls instead of repeating code
 - **minimal** — ~4k lines of Lua. roughly 10× smaller than other AI slop generators. no framework, no bloat, no opinions about your workflow. just a loop and some tools
 - **native** — prompt buffer for input, folds for output, winbar for model name and spinner, busy indicator in the statusline, markdown for visuals, vim tool integration
 - **memory compaction** — auto-summarizes old messages at 75% context window so long sessions don’t explode
-- **model catalog** — fetches models from models.dev <https://models.dev>, auto-detects GitHub Copilot and Ollama
-- **any OpenAI-compatible API** — point it at whatever speaks `/chat/completions` or `/responses` and it just works
-- **extensible** — tool registry with concurrent execution, plug in whatever you need
+- **model catalog** — fetches models from models.dev <https://models.dev> + bunch of extra in filters </lua/slopcode/filters/>
+- **extensible** — tool registry, agents.md <https://agents.md/>, skills.sh <https://skills.sh/> support, plug in whatever you need
 
 
 HOW                                                             *slopcode-how*
@@ -67,7 +66,7 @@ CONFIGURATION                                         *slopcode-configuration*
 <
 
 - environment variables for API keys: `OPENAI_API_KEY`, `OLLAMA_API_KEY`, etc, see models.dev <https://models.dev>
-- for copilot, copilot.vim <https://github.com/github/copilot.vim> is needed for auth
+- for copilot, copilot.vim <https://github.com/github/copilot.vim> or similar is needed for generating auth
 - full config is here <lua/slopcode/config.lua>
 
 
