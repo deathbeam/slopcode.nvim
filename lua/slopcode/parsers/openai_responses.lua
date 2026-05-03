@@ -63,7 +63,7 @@ return {
         if opts.reasoning_effort ~= nil then
             body.reasoning = {
                 effort = opts.reasoning_effort,
-                summary = "auto"
+                summary = 'auto',
             }
         end
 
