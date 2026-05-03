@@ -10,15 +10,12 @@ make test          # run full test suite (custom mini.test runner, headless Neov
 make format        # format all Lua files with stylua
 ```
 
-Test deps (mini.test, async.nvim) auto-clone into `.deps/` on first run. Delete `.deps/` manually if stale.
-
 ## Testing
 
 Tests use [mini.test](https://github.com/nvim-mini/mini.test) with busted-style `describe`/`it`/`before_each`. Dependencies (mini.test, async.nvim) auto-clone into `.deps/` on first run.
 
 - **All tests use child Neovim**: `local child = MiniTest.new_child_neovim()` then `child.restart({ "-u", "scripts/init.lua" })` in `before_each`. The `-u` flag is required — it sets up runtimepath + deps.
 - Assertions: `MiniTest.expect.equality(a, b)` / `MiniTest.expect.no_equality(a, b)`
-- Test files: `tests/test_status.lua`, `tests/test_loop.lua`, `tests/test_agent.lua`, `tests/test_anchors.lua`, `tests/test_tools.lua`, `tests/test_parsers.lua`, `tests/test_prompt.lua`
 
 ## Critical Architecture Rules
 
@@ -30,4 +27,4 @@ Tests use [mini.test](https://github.com/nvim-mini/mini.test) with busted-style 
 
 **Shared references use in-place mutation.** `agent.messages` is a reference to the internal `_messages` table. Reset and compact use `for k in pairs(t) do t[k] = nil end` — never reassign the table, or external references break.
 
-**Notifications go through `status.notify()`**, not `utils.notify()`. `status.notify` renders in the winbar AND calls `vim.notify`; there is no `utils.notify`.
+**Notifications go through `status.notify()`**, `status.notify` renders in the winbar AND calls `vim.notify`
