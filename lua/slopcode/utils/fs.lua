@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 local async = require('async')
 local sync = require('slopcode.utils.vim').sync

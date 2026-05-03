@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 --- Hashline-anchored editing: stateless hash computation and anchor validation.
 ---

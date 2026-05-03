@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 -- Project-specific test runner for mini.test
 -- Sourced automatically by MiniTest.run() (via config.script_path)

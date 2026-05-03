@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 return {
     --- @type string provider/model identifier, e.g. 'openai/gpt-4' or 'ollama-cloud/glm-5.1'

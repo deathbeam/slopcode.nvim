@@ -59,6 +59,8 @@ config.display.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
 
 ## license
 
-GPL-2.0
+MIT
+
+## image
 
 <img width="1290" height="1054" alt="image" src="https://github.com/user-attachments/assets/0c4b8c77-bf07-4b5a-a2b2-9bf084b425aa" />

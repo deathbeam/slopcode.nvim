@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 --- Extract the first non-empty reasoning field from a delta object.
 --- @param delta table

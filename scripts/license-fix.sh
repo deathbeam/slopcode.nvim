@@ -1,5 +1,5 @@
 #!/bin/sh
-# Ensure every .lua file has a GPL-2.0-only SPDX header with a blank line after it.
+# Ensure every .lua file has an MIT SPDX header with a blank line after it.
 # Usage: scripts/license-fix.sh [lint|format]
 
 set -e
@@ -9,11 +9,11 @@ files=$(find . -name '*.lua' -not -path './.deps/*')
 issues=0
 
 for f in $files; do
-	if ! head -1 "$f" | grep -q 'SPDX-License-Identifier: GPL-2.0-only'; then
+	if ! head -1 "$f" | grep -q 'SPDX-License-Identifier: MIT'; then
 		echo "missing license header: $f"
 		issues=$((issues + 1))
 		if [ "$mode" = "format" ]; then
-			sed -i '1i\-- SPDX-License-Identifier: GPL-2.0-only\n' "$f"
+			sed -i '1i\-- SPDX-License-Identifier: MIT\n' "$f"
 			echo "  -> added license header"
 		fi
 	elif [ "$(sed -n '2p' "$f")" != '' ]; then

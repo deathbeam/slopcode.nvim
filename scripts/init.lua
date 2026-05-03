@@ -1,4 +1,4 @@
--- SPDX-License-Identifier: GPL-2.0-only
+-- SPDX-License-Identifier: MIT
 
 -- Project-specific test setup: runtimepath + dependencies
 -- Sourced by scripts/minitest.lua and used as -u init for child Neovim processes
