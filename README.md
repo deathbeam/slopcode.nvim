@@ -38,6 +38,8 @@ then just `:Slop <prompt>?` and away you go.
 - `<C-c>` to abort
 - `<Tab>` to switch model
 
+use `@<path_or_buffer>` to reference files, `/<skill_name>` to manually activate skills
+
 ## configuration
 
 ```lua

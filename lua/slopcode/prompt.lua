@@ -2,47 +2,22 @@
 
 local M = {}
 
-local config = require('slopcode.config')
-local fs = require('slopcode.utils.fs')
 local sync = require('slopcode.utils.vim').sync
 
 --- @type string?
 local _cached = nil
 
---- @param cwd string
---- @param paths string[]
---- @return {path: string, content: string}[]
-local function load_context_files(cwd, paths)
-    local seen = {}
-
-    for _, path in ipairs(paths) do
-        local abs_path = vim.fs.abspath(path)
-        seen[abs_path] = true
+--- @param str string
+--- @return string
+local function escape_xml(str)
+    if not str then
+        return ''
     end
 
-    local sections = {}
-
-    for path, _ in pairs(seen) do
-        local stat = vim.uv.fs_stat(path)
-        if stat and stat.type ~= 'directory' then
-            local rel_path = vim.fs.relpath(cwd, path)
-            local fd = fs.open(path, fs.O_RDONLY, tonumber('0644', 8))
-            local fstat = fs.fstat(fd)
-            local data = fs.read(fd, fstat.size, 0)
-            fs.close(fd)
-
-            sections[#sections + 1] = {
-                path = rel_path,
-                content = data,
-            }
-        end
-    end
-
-    return sections
+    return str:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;'):gsub('"', '&quot;'):gsub("'", '&apos;') or ''
 end
 
---- Build and cache the system prompt.
---- Returns cached result on subsequent calls until invalidated.
+--- @async
 --- @return string
 function M.build()
     if _cached then
@@ -51,8 +26,9 @@ function M.build()
 
     sync()
 
+    local config = require('slopcode.config')
     local cwd = vim.fn.getcwd()
-    _cached = vim.trim(config.system_prompt)
+    _cached = vim.trim(config.system_prompt) .. '\n'
 
     local prompt_snippets = {}
     local prompt_guidelines = {}
@@ -79,24 +55,48 @@ function M.build()
         return os.date('%Y-%m-%d')
     end)
 
-    local context_files = load_context_files(cwd, config.context or {})
+    local context_files = require('slopcode.context').build()
     if #context_files > 0 then
         local lines = {
-            '',
             '',
             '# Project Context',
             '',
             'Project-specific instructions and guidelines:',
-            '',
         }
 
         for _, section in ipairs(context_files) do
+            lines[#lines + 1] = ''
             lines[#lines + 1] = string.format('## %s', section.path)
             lines[#lines + 1] = ''
             lines[#lines + 1] = section.content
         end
 
-        _cached = _cached .. table.concat(lines, '\n')
+        _cached = _cached .. table.concat(lines, '\n') .. '\n'
+    end
+
+    local skill_files = require('slopcode.skills').build()
+    if #skill_files > 0 then
+        local lines = {
+            '',
+            'The following skills provide specialized instructions for specific tasks.',
+            "Use the read tool to load a skill's file when the task matches its description.",
+            'When a skill file references a relative path, resolve it against the skill directory',
+            '(parent of SKILL.md) and use that absolute path in tool commands.',
+            'When /<skill_name> is used, treat it as skill activation and load the corresponding skill file.',
+            '',
+            '<available_skills>',
+        }
+
+        for _, skill in ipairs(skill_files) do
+            lines[#lines + 1] = '  <skill>'
+            lines[#lines + 1] = '    <name>' .. escape_xml(skill.name) .. '</name>'
+            lines[#lines + 1] = '    <description>' .. escape_xml(skill.description) .. '</description>'
+            lines[#lines + 1] = '    <location>' .. escape_xml(skill.path) .. '</location>'
+            lines[#lines + 1] = '  </skill>'
+        end
+
+        lines[#lines + 1] = '</available_skills>'
+        _cached = _cached .. table.concat(lines, '\n') .. '\n'
     end
 
     return _cached
