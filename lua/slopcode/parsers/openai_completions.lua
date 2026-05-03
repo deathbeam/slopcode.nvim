@@ -33,7 +33,6 @@ return {
         local body = {
             model = model,
             messages = messages,
-            store = false,
         }
 
         if opts.temperature ~= nil then

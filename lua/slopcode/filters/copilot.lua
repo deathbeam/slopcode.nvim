@@ -168,10 +168,14 @@ return function(models)
             else
                 m.baseUrl = base_url
                 m.parser = live.responses and 'openai_responses' or 'openai_completions'
-                m.headers = function()
+                m.headers = function(messages)
+                    local last = messages[#messages]
+                    local initiator = (last and last.role ~= 'user') and 'agent' or 'user'
                     local token = get_copilot_token() or ''
+
                     return vim.tbl_extend('force', HEADERS, {
                         ['Authorization'] = 'Bearer ' .. token,
+                        ['X-Initiator'] = initiator,
                     })
                 end
             end

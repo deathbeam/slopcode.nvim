@@ -10,6 +10,7 @@ local prompt = require('slopcode.prompt')
 local tools = require('slopcode.tools')
 local memory = require('slopcode.memory')
 local loop = require('slopcode.loop')
+local text = require('slopcode.utils.text')
 
 --- @type table[]  conversation messages
 local _messages = {}
@@ -24,10 +25,11 @@ local _usage = { requests = 0, input = 0, output = 0, cache_read = 0, cache_writ
 
 --- @async
 --- Stream one turn from the API.
+--- @param session_id string
 --- @param model table
 --- @param parser table
 --- @return table result
-local function stream_turn(model, parser)
+local function stream_turn(session_id, model, parser)
     local api_messages = { { role = 'system', content = prompt.build() or '' } }
     for _, msg in ipairs(_messages) do
         local m = {}
@@ -46,6 +48,7 @@ local function stream_turn(model, parser)
 
     local r = async.await(function(resolve)
         local ok, cancel_fn = pcall(api.stream, api_messages, tools.get_definitions(), {
+            session_id = session_id,
             temperature = config.temperature,
             reasoning_effort = config.reasoning_effort,
             model = model,
@@ -161,6 +164,7 @@ end
 function M.run(user_text)
     _running = true
 
+    local session_id = text.uuid()
     local model, parser = catalog.model()
     if not model or not parser then
         loop.push({
@@ -199,7 +203,7 @@ function M.run(user_text)
             end
 
             -- Stream one turn
-            local result = stream_turn(model, parser)
+            local result = stream_turn(session_id, model, parser)
 
             -- Update usage
             loop.push({

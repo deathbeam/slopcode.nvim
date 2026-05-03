@@ -35,7 +35,7 @@ end
 --- Stream a completion request via SSE
 --- @param messages table[]
 --- @param tools table tool definitions
---- @param opts table { temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
+--- @param opts table { session_id, temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
 --- @return function  cancel_fn
 function M.stream(messages, tools, opts)
     local model, parser = opts.model, opts.parser
@@ -59,9 +59,15 @@ function M.stream(messages, tools, opts)
 
     local body = parser.build_body(model.id, messages, tools, req)
     local url = model.url
-    local headers = type(model.headers) == 'function' and model:headers() or model.headers or {}
+    local headers = type(model.headers) == 'function' and model:headers(messages) or model.headers or {}
     headers['Content-Type'] = 'application/json'
     headers['Accept'] = 'text/event-stream'
+
+    if opts.session_id then
+        headers['session_id'] = opts.session_id
+        headers['x-client-request-id'] = opts.session_id
+        headers['x-session-affinity'] = opts.session_id
+    end
 
     local curl = require('slopcode.utils.curl')
     local c = curl.cmd('POST', url, { headers = headers, body = body, stream = true })
@@ -158,7 +164,7 @@ function M.complete(messages, opts)
     })
 
     local url = model.url
-    local headers = type(model.headers) == 'function' and model:headers() or model.headers or {}
+    local headers = type(model.headers) == 'function' and model:headers(messages) or model.headers or {}
     headers['Content-Type'] = 'application/json'
 
     local curl = require('slopcode.utils.curl')

@@ -53,7 +53,6 @@ return {
         local instructions, input = convert_messages(messages)
         local body = {
             model = model,
-            store = false,
         }
 
         if opts.temperature ~= nil then
