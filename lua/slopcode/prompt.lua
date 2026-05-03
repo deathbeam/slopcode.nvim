@@ -3,12 +3,46 @@
 local M = {}
 
 local config = require('slopcode.config')
+local fs = require('slopcode.utils.fs')
 local sync = require('slopcode.utils.vim').sync
 
 --- @type string?
 local _cached = nil
 
---- Build and cache the system prompt with context files and template expansion.
+--- @param cwd string
+--- @param paths string[]
+--- @return {path: string, content: string}[]
+local function load_context_files(cwd, paths)
+    local seen = {}
+
+    for _, path in ipairs(paths) do
+        local abs_path = vim.fs.abspath(path)
+        seen[abs_path] = true
+    end
+
+    local sections = {}
+
+    for path, _ in pairs(seen) do
+        local stat = vim.uv.fs_stat(path)
+        if stat and stat.type ~= 'directory' then
+            local rel_path = vim.fs.relpath(cwd, path)
+            local fd = fs.open(path, fs.O_RDONLY, tonumber('0644', 8))
+            local fstat = fs.fstat(fd)
+            local data = fs.read(fd, fstat.size, 0)
+            fs.close(fd)
+
+            sections[#sections + 1] = {
+                path = rel_path,
+                content = data,
+            }
+        end
+    end
+
+    return sections
+end
+
+--- Build and cache the system prompt.
+--- Returns cached result on subsequent calls until invalidated.
 --- @return string
 function M.build()
     if _cached then
@@ -18,60 +52,7 @@ function M.build()
     sync()
 
     local cwd = vim.fn.getcwd()
-    local found, seen = {}, {}
-
-    for _, raw in ipairs(config.context or {}) do
-        local pattern = vim.fs.abspath(raw)
-        local is_glob = pattern:find('[%*%?%[%]]')
-        local has_path_sep = pattern:find('/')
-
-        if not has_path_sep then
-            local dirs = {}
-            local dir = cwd
-            while dir ~= '/' and dir ~= '' do
-                dirs[#dirs + 1] = dir
-                local parent = vim.fn.fnamemodify(dir, ':h')
-                if parent == dir then
-                    break
-                end
-                dir = parent
-            end
-            for i = #dirs, 1, -1 do
-                local f = dirs[i] .. '/' .. pattern
-                if vim.fn.filereadable(f) == 1 and not seen[f] then
-                    found[#found + 1] = f
-                    seen[f] = true
-                end
-            end
-        elseif is_glob then
-            for _, f in ipairs(vim.fn.glob(pattern, false, true)) do
-                if vim.fn.filereadable(f) == 1 and not seen[f] then
-                    found[#found + 1] = f
-                    seen[f] = true
-                end
-            end
-        else
-            local f = pattern
-            if not f:find('^/') then
-                f = cwd .. '/' .. pattern
-            end
-            if vim.fn.filereadable(f) == 1 and not seen[f] then
-                found[#found + 1] = f
-                seen[f] = true
-            end
-        end
-    end
-
-    local sections = {}
-    for _, f in ipairs(found) do
-        local lines = vim.fn.readfile(f)
-        if lines and #lines > 0 then
-            local rel = vim.fn.fnamemodify(f, ':~:.')
-            sections[#sections + 1] = '## ' .. rel .. '\n\n' .. table.concat(lines, '\n')
-        end
-    end
-
-    _cached = config.system_prompt
+    _cached = vim.trim(config.system_prompt)
 
     local prompt_snippets = {}
     local prompt_guidelines = {}
@@ -98,16 +79,29 @@ function M.build()
         return os.date('%Y-%m-%d')
     end)
 
-    if #sections > 0 then
-        _cached = _cached .. '\n\n# Project Context\n\n'
-        _cached = _cached .. 'Project-specific instructions and guidelines:\n\n'
-        _cached = _cached .. table.concat(sections, '\n\n')
+    local context_files = load_context_files(cwd, config.context or {})
+    if #context_files > 0 then
+        local lines = {
+            '',
+            '',
+            '# Project Context',
+            '',
+            'Project-specific instructions and guidelines:',
+            '',
+        }
+
+        for _, section in ipairs(context_files) do
+            lines[#lines + 1] = string.format('## %s', section.path)
+            lines[#lines + 1] = ''
+            lines[#lines + 1] = section.content
+        end
+
+        _cached = _cached .. table.concat(lines, '\n')
     end
 
     return _cached
 end
 
---- Invalidate the cached prompt
 function M.invalidate()
     _cached = nil
 end
