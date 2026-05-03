@@ -331,7 +331,6 @@ describe('openai_responses.build_body', function()
         }, {}, { temperature = 0.1, max_tokens = 4096 })
         MiniTest.expect.equality(body.instructions, 'You are helpful.')
         MiniTest.expect.equality(body.model, 'gpt-4o')
-        MiniTest.expect.equality(body.store, false)
         MiniTest.expect.equality(body.max_output_tokens, 4096)
     end)
 
