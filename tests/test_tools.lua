@@ -16,27 +16,25 @@ end
 --- Run a tool handler inside async.run + pcall (same boundary as tools.execute_all).
 --- Returns: ok, result  (ok from pcall, result is the handler return or error string)
 local function run_handler(tool_name, args)
-    -- Write args to a global temp var in the child to avoid string escaping issues
-    child.lua('_G._tool_args = ' .. vim.inspect(args))
     local code = string.format(
         [[
         local async = require('async')
         local config = require('slopcode.config')
         local tool = config.tools["%s"]
         local handler = tool and tool.handler
-        local args = _G._tool_args
+        local args = %s
         local task = async.run(function()
             local ok, result = pcall(handler, args)
             return ok, result
         end)
         local ok, result = task:wait()
-        _G._tool_ok = ok
-        _G._tool_result = result
+        return { ok = ok, result = result }
     ]],
-        tool_name
+        tool_name,
+        vim.inspect(args)
     )
-    child.lua(code)
-    return child.lua_get('_G._tool_ok'), child.lua_get('_G._tool_result')
+    local ret = child.lua(code)
+    return ret.ok, ret.result
 end
 
 --- Write content to a temp file using vim.fn.writefile
@@ -90,9 +88,9 @@ describe('read tool', function()
         write_temp('/tmp/slopcode_test_read.txt', 'hello world')
         local ok, result = run_handler('read', { path = '/tmp/slopcode_test_read.txt' })
         MiniTest.expect.equality(ok, true)
-        -- Should have LINETAG|content format
         local line_num, hash, content = anchors.parse(vim.trim(result))
         MiniTest.expect.equality(line_num, 1)
+        MiniTest.expect.no_equality(hash, nil)
         MiniTest.expect.equality(content, 'hello world')
     end)
 
@@ -110,6 +108,7 @@ describe('read tool', function()
         MiniTest.expect.equality(ok, true)
         local line_num, hash, content = anchors.parse(vim.trim(result))
         MiniTest.expect.equality(line_num, 1)
+        MiniTest.expect.no_equality(hash, nil)
         MiniTest.expect.equality(content, 'buf content')
     end)
 end)
@@ -340,7 +339,7 @@ end)
 describe('tools.execute_all', function()
     it('wraps handler errors as Error: prefix string', function()
         load_config()
-        child.lua([[
+        local output = child.lua([[
             local async = require('async')
             local tools = require('slopcode.tools')
 
@@ -357,18 +356,16 @@ describe('tools.execute_all', function()
             local task = async.run(function()
                 return tools.execute_all(tool_calls)
             end)
-            task:wait()
-            local output = task:wait()
-            _G._exec_result = output[1].content
+            return task:wait()
         ]])
-        local result = child.lua_get('_G._exec_result')
+        local result = output[1].content
         MiniTest.expect.no_equality(result:find('Error:'), nil)
         MiniTest.expect.no_equality(result:find('File not found'), nil)
     end)
 
     it('returns unknown tool error for invalid tool name', function()
         load_config()
-        child.lua([[
+        local output = child.lua([[
             local async = require('async')
             local tools = require('slopcode.tools')
 
@@ -385,11 +382,9 @@ describe('tools.execute_all', function()
             local task = async.run(function()
                 return tools.execute_all(tool_calls)
             end)
-            task:wait()
-            local output = task:wait()
-            _G._exec_result = output[1].content
+            return task:wait()
         ]])
-        local result = child.lua_get('_G._exec_result')
+        local result = output[1].content
         MiniTest.expect.no_equality(result:find('Error:'), nil)
         MiniTest.expect.no_equality(result:find('unknown tool'), nil)
     end)
