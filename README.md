@@ -11,13 +11,13 @@ inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the 
 
 ## why
 
-- **game-like main loop** — push events, drain on a 16ms tick. feels like a game engine for chat, because why not
-- **hash-anchored edits** — stateless line hashing so the LLM references anchors in edit calls instead of repeating code
-- **minimal** — ~4k lines of Lua. roughly 10× smaller than other AI slop generators. no framework, no bloat, no opinions about your workflow. just a loop and some tools
-- **native** — prompt buffer for input, folds for output, winbar for model name and spinner, busy indicator in the statusline, markdown for visuals, vim tool integration
-- **memory compaction** — auto-summarizes old messages at 75% context window so long sessions don't explode
-- **model catalog** — fetches models from [models.dev](https://models.dev) + bunch of extra in [filters](/lua/slopcode/filters/)
-- **extensible** — tool registry, [agents.md](https://agents.md/), [skills.sh](https://skills.sh/) support, plug in whatever you need
+- **game-like main loop** - push events, drain on a 16ms tick. feels like a game engine for chat, because why not
+- **hash-anchored edits** - stateless line hashing so the edit calls reference stable hashes instead of repeating code
+- **minimal** - ~4k lines of Lua. roughly 10× smaller than other AI slop generators. no bloat, no opinions about your workflow. just a loop and some tools
+- **native** - prompt buffer for input, folds for output, winbar for model name and spinner, busy indicator in the statusline, markdown for visuals, vim tool integration
+- **memory compaction** - auto-summarizes old messages at 75% context window so long sessions don't explode
+- **model catalog** - fetches models from [models.dev](https://models.dev) + bunch of extra in [filters](/lua/slopcode/filters/)
+- **extensible** - tool registry, [agents.md](https://agents.md/), [skills.sh](https://skills.sh/) support, plug in whatever you need
 
 ## how
 
