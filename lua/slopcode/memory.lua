@@ -91,7 +91,7 @@ function M.compact(messages, opts)
             role = 'system',
             content = 'Summarize the conversation concisely. Preserve key decisions, code, file paths, and context.',
         },
-        { role = 'user', content = 'Summarize:\n\n' .. vim.json.encode(to_summarize) },
+        { role = 'user', content = 'Summarize:\n\n' .. vim.json.encode(to_summarize, { indent = '  ' }) },
     }, opts)
 
     local summary = parser and parser.extract_content and parser.extract_content(response) or ''
@@ -105,7 +105,7 @@ function M.compact(messages, opts)
     if messages[1] and messages[1].role == 'system' then
         new_messages[1] = messages[1]
     end
-    new_messages[#new_messages + 1] = { role = 'system', content = summary }
+    new_messages[#new_messages + 1] = { role = 'user', content = summary }
     for i = #messages - keep_recent + 1, #messages do
         new_messages[#new_messages + 1] = messages[i]
     end
