@@ -137,6 +137,28 @@ describe('loop.push / drain', function()
         end
     end)
 
+    it('escalates fence when content has 4 backticks', function()
+        load_modules()
+        attach_loop()
+        child.lua([[
+            require('slopcode.loop').push({
+                type = 'tool_result',
+                name = 'read',
+                args = 'x',
+                content = '```\ncode\n````\nmore',
+            })
+            require('slopcode.loop').drain()
+        ]])
+        local lines = get_buf_lines()
+        local fence_line = nil
+        for i, line in ipairs(lines) do
+            if line:match('^`%`%`%`%`$') then
+                fence_line = line
+            end
+        end
+        MiniTest.expect.no_equality(fence_line, nil)
+    end)
+
     it('renders status event with [!] prefix', function()
         load_modules()
         attach_loop()

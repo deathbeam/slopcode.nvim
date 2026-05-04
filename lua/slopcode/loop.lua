@@ -183,8 +183,17 @@ end
 --- @return integer start_line, integer end_line
 local function render_tool_block(buf, name, label, content)
     local start = _buf_lines
+    -- Find the longest backtick run in content to avoid fence collisions
+    local max_backticks = 3
+    for run in content:gmatch('(`+)') do
+        local len = #run
+        if len > max_backticks then
+            max_backticks = len
+        end
+    end
+    local fence = string.rep('`', max_backticks + 1)
     block_append(buf, '▸ ' .. name .. ': ' .. label .. '\n')
-    block_append(buf, '````\n' .. content .. '\n````\n')
+    block_append(buf, fence .. '\n' .. content .. '\n' .. fence .. '\n')
     local end_lnum = _buf_lines - 1
     return start, end_lnum
 end
