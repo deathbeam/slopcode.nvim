@@ -18,12 +18,11 @@ end
 local function attach_loop()
     child.lua([[
         local buf = vim.api.nvim_create_buf(true, true)
-        local win = vim.api.nvim_open_win(buf, true, { split = 'right' })
-        require('slopcode.loop').attach(buf, win)
+        vim.api.nvim_open_win(buf, true, { split = 'right' })
+        require('slopcode.loop').attach(buf)
         require('slopcode.status').subheader1('test-model')
     ]])
 end
-
 local function get_buf_lines()
     return child.lua_get('vim.api.nvim_buf_get_lines(require("slopcode.loop").buf(), 0, -1, false)')
 end
@@ -44,45 +43,14 @@ end)
 -- Tests
 -----------------------------------------------------------------------
 
-describe('loop.attach / detach', function()
-    it('stores buffer and window references', function()
+describe('loop.attach', function()
+    it('stores buffer reference and finds window', function()
         load_modules()
         attach_loop()
         local buf = child.lua_get('require("slopcode.loop").buf()')
-        local win = child.lua_get('require("slopcode.loop").win()')
+        local win = child.lua_get('vim.api.nvim_win_get_buf(0)')
         MiniTest.expect.equality(type(buf), 'number')
-        MiniTest.expect.equality(type(win), 'number')
-    end)
-
-    it('clears references on detach', function()
-        load_modules()
-        attach_loop()
-        child.lua('require("slopcode.loop").detach()')
-        local buf = child.lua_get('require("slopcode.loop").buf()')
-        MiniTest.expect.equality(buf, vim.NIL)
-    end)
-
-    it('clears all internal state on detach', function()
-        load_modules()
-        attach_loop()
-        child.lua('require("slopcode.loop").detach()')
-        local buf = child.lua_get('require("slopcode.loop").buf()')
-        local win = child.lua_get('require("slopcode.loop").win()')
-        MiniTest.expect.equality(buf, vim.NIL)
-        MiniTest.expect.equality(win, vim.NIL)
-    end)
-
-    it('drain after detach is a no-op', function()
-        load_modules()
-        attach_loop()
-        child.lua([[
-            require('slopcode.loop').detach()
-            require('slopcode.loop').push({ type = 'user_message', content = 'after detach' })
-            require('slopcode.loop').drain()
-        ]])
-        -- No error should occur
-        local buf = child.lua_get('require("slopcode.loop").buf()')
-        MiniTest.expect.equality(buf, vim.NIL)
+        MiniTest.expect.equality(win, buf)
     end)
 end)
 

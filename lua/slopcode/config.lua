@@ -10,9 +10,33 @@ return {
     --- @type 'none' | 'low' | 'medium' | 'high'
     reasoning_effort = 'medium',
 
+    --- @type table window options for the chat panel
+    window = {
+        --- @type 'vertical' | 'horizontal' | 'float' | 'replace'
+        layout = 'vertical',
+        --- @type number fractional (0-1) or absolute (>1) width
+        width = 0.5,
+        --- @type number fractional (0-1) or absolute (>1) height
+        height = 0.5,
+        --- @type 'editor' | 'win' | 'cursor' | 'mouse' only for 'float' layout
+        relative = 'editor',
+        --- @type 'none' | 'single' | 'double' | 'rounded' | 'solid' | 'shadow'
+        border = 'single',
+        --- @type integer? row position (centered if nil)
+        row = nil,
+        --- @type integer? column position (centered if nil)
+        col = nil,
+        --- @type string title shown in the floating window border
+        title = 'slopcode',
+        --- @type string? footer shown in the floating window border
+        footer = nil,
+        --- @type integer z-index for float stacking
+        zindex = 1,
+        --- @type integer window transparency 0-100 (0 = opaque)
+        blend = 0,
+    },
+
     display = {
-        --- @type 'vsplit' | 'hsplit' | 'replace'
-        layout = 'vsplit',
         --- @type boolean show reasoning tokens
         thinking = true,
     },

@@ -6,10 +6,11 @@ local FRAMES = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', 
 local INTERVAL = 80
 local NOTIFY_MS = 5000
 
+local vim_utils = require('slopcode.utils.vim')
+
 --- @type integer?
 local _buf = nil
---- @type integer?
-local _win = nil
+
 --- @type vim.uv.Timer?
 local _timer = nil
 --- @type integer
@@ -50,8 +51,9 @@ local function tick()
         _busy_text = ''
     end
 
-    if _win and vim.api.nvim_win_is_valid(_win) then
-        vim.api.nvim_win_call(_win, function()
+    local w = vim_utils.win_for_buf(_buf)
+    if w then
+        vim.api.nvim_win_call(w, function()
             vim.cmd('redrawstatus')
         end)
     end
@@ -83,12 +85,11 @@ function M.resolve()
         .. (subheader ~= '' and ('%=%#NonText# ' .. subheader .. ' %*') or '')
 end
 
---- Attach status module to a buffer/window pair.
+--- Attach status module to a buffer.
+--- Window is auto-discovered from buffer for winbar setting.
 --- @param buf integer
---- @param win integer
-function M.attach(buf, win)
+function M.attach(buf)
     _buf = buf
-    _win = win
     _busy = false
     _busy_text = ''
     _header = ''
@@ -96,32 +97,10 @@ function M.attach(buf, win)
     _subheader2 = ''
     _notify = nil
 
-    if win and vim.api.nvim_win_is_valid(win) then
-        vim.wo[win].winbar = "%!v:lua.require'slopcode.status'.resolve()"
+    local w = vim_utils.win_for_buf(buf)
+    if w then
+        vim.wo[w].winbar = "%!v:lua.require'slopcode.status'.resolve()"
     end
-end
-
---- Detach status module and clean up timers.
-function M.detach()
-    if _timer then
-        _timer:stop()
-        _timer:close()
-        _timer = nil
-    end
-    if _notify_timer then
-        _notify_timer:stop()
-        _notify_timer:close()
-        _notify_timer = nil
-    end
-
-    _buf = nil
-    _win = nil
-    _busy = false
-    _busy_text = ''
-    _header = ''
-    _subheader1 = ''
-    _subheader2 = ''
-    _notify = nil
 end
 
 --- Start the spinner animation.
@@ -170,8 +149,9 @@ function M.notify(msg, level, ms)
         return
     end
     _notify = { msg = msg, expires = vim.uv.now() + ms }
-    if _win and vim.api.nvim_win_is_valid(_win) then
-        vim.api.nvim_win_call(_win, function()
+    local w = vim_utils.win_for_buf(_buf)
+    if w then
+        vim.api.nvim_win_call(w, function()
             vim.cmd('redrawstatus')
         end)
     end
@@ -187,8 +167,9 @@ function M.notify(msg, level, ms)
             _notify_timer:close()
             _notify_timer = nil
             _notify = nil
-            if _win and vim.api.nvim_win_is_valid(_win) then
-                vim.api.nvim_win_call(_win, function()
+            local w = vim_utils.win_for_buf(_buf)
+            if w then
+                vim.api.nvim_win_call(w, function()
                     vim.cmd('redrawstatus')
                 end)
             end

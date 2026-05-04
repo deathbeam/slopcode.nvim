@@ -45,7 +45,14 @@ use `@<path_or_buffer>` to reference files, `/<skill_name>` to manually activate
 local config = require('slopcode.config')
 
 config.model = 'ollama-cloud/glm-5.1' -- default model
-config.display.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
+config.window.layout = 'vertical'     -- 'vertical' | 'horizontal' | 'float' | 'replace'
+```
+
+you can also papss opts directly to `open()` or `toggle()`:
+
+```lua
+require('slopcode').open({ layout = 'float', width = 0.8, height = 0.6 })
+require('slopcode').toggle({ layout = 'replace' })
 ```
 
 - environment variables for API keys: `OPENAI_API_KEY`, `OLLAMA_API_KEY`, etc, see [models.dev](https://models.dev)
