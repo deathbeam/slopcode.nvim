@@ -221,7 +221,7 @@ local function dispatch(event)
         _stream_tail = ''
     elseif t == 'content_start' then
         -- nothing for now
-    elseif t == 'reasoning_start' then
+    elseif t == 'reasoning_start' and not quiet then
         -- nothing for now
     elseif t == 'tool_result' then
         ensure_blank_line(_buf)
@@ -336,9 +336,11 @@ function M.redraw(messages)
         elseif msg.role == 'assistant' then
             dispatch({ type = 'stream_start', quiet = true })
             if meta.reasoning and meta.reasoning ~= '' then
+                dispatch({ type = 'reasoning_start' })
                 dispatch({ type = 'reasoning_delta', content = meta.reasoning })
             end
             if msg.content and msg.content ~= '' then
+                dispatch({ type = 'content_start' })
                 dispatch({ type = 'content_delta', content = msg.content })
             end
             dispatch({ type = 'stream_end', quiet = true })
