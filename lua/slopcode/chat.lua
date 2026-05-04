@@ -184,7 +184,7 @@ function M.send(user_text)
         agent.push(user_text)
         return
     end
-    async.run(agent.run, user_text)
+    async.run(agent.run, user_text):raise_on_error()
 end
 
 --- Reset the conversation history and redraw the buffer.
@@ -283,7 +283,7 @@ function M.model()
             status.subheader1(label)
             status.notify('Model: ' .. label, 'info', 3000)
         end
-    end)
+    end):raise_on_error()
 end
 
 return M
