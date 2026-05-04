@@ -163,7 +163,7 @@ return {
         if event_type == 'response.reasoning_summary_text.delta' then
             local text = chunk.delta or ''
             if text ~= '' then
-                state.reasoning = (state.reasoning or '') .. text
+                state.reasoning:put(text)
                 -- Also track in parts if available
                 if state._reasoning_parts and #state._reasoning_parts > 0 then
                     local last = state._reasoning_parts[#state._reasoning_parts]
@@ -179,7 +179,7 @@ return {
             if state._reasoning_parts and #state._reasoning_parts > 0 then
                 local last = state._reasoning_parts[#state._reasoning_parts]
                 last.text = (last.text or '') .. '\n\n'
-                state.reasoning = (state.reasoning or '') .. '\n\n'
+                state.reasoning:put('\n\n')
                 return 'reasoning', '\n\n'
             end
             return nil
@@ -188,7 +188,7 @@ return {
         if event_type == 'response.output_text.delta' then
             local text = chunk.delta or ''
             if text ~= '' then
-                state.content = (state.content or '') .. text
+                state.content:put(text)
                 return 'content', text
             end
             return nil
@@ -197,7 +197,7 @@ return {
         if event_type == 'response.refusal.delta' then
             local text = chunk.delta or ''
             if text ~= '' then
-                state.content = (state.content or '') .. text
+                state.content:put(text)
                 return 'content', text
             end
             return nil
@@ -267,7 +267,7 @@ return {
                             summary[#summary + 1] = part.text
                         end
                     end
-                    state.reasoning = table.concat(summary, '\n\n')
+                    state.reasoning:set(table.concat(summary, '\n\n'))
                 end
                 return nil
             end

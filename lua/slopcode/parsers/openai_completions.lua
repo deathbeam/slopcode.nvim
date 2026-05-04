@@ -95,13 +95,13 @@ return {
         -- Reasoning / thinking tokens (multiple field name variants)
         local reasoning_delta = delta and first_nonempty_reasoning(delta)
         if reasoning_delta then
-            state.reasoning = (state.reasoning or '') .. reasoning_delta
+            state.reasoning:put(reasoning_delta)
             return 'reasoning', reasoning_delta
         end
 
         -- Regular content
         if delta and delta.content and delta.content ~= '' then
-            state.content = (state.content or '') .. delta.content
+            state.content:put(delta.content)
             return 'content', delta.content
         end
 

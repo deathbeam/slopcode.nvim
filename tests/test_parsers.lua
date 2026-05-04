@@ -5,6 +5,7 @@
 --- These are pure-function tests — no child Neovim needed since
 --- parsers have no vim.api / buffer / async dependencies.
 
+local buf = require('vim._core.stringbuffer')
 local completions = require('slopcode.parsers.openai_completions')
 local responses = require('slopcode.parsers.openai_responses')
 
@@ -14,16 +15,7 @@ local responses = require('slopcode.parsers.openai_responses')
 
 --- Create a fresh state table for process_chunk tests.
 local function new_state()
-    return { content = '', reasoning = '', tool_calls = {} }
-end
-
---- Feed a sequence of chunks through process_chunk, return the final state.
-local function feed_chunks(parser, chunks)
-    local state = new_state()
-    for _, chunk in ipairs(chunks) do
-        parser.process_chunk(chunk, state)
-    end
-    return state
+    return { content = buf.new(), reasoning = buf.new(), tool_calls = {} }
 end
 
 -----------------------------------------------------------------------
@@ -97,7 +89,7 @@ describe('openai_completions.process_chunk', function()
         completions.process_chunk({
             choices = { { delta = { content = ' world' } } },
         }, state)
-        MiniTest.expect.equality(state.content, 'Hello world')
+        MiniTest.expect.equality(state.content:tostring(), 'Hello world')
     end)
 
     it('returns kind=content and payload for content delta', function()
@@ -113,7 +105,7 @@ describe('openai_completions.process_chunk', function()
         completions.process_chunk({
             choices = { { delta = { reasoning_content = 'thinking' } } },
         }, state)
-        MiniTest.expect.equality(state.reasoning, 'thinking')
+        MiniTest.expect.equality(state.reasoning:tostring(), 'thinking')
     end)
 
     it('accumulates reasoning from reasoning field', function()
@@ -121,7 +113,7 @@ describe('openai_completions.process_chunk', function()
         completions.process_chunk({
             choices = { { delta = { reasoning = 'hmm' } } },
         }, state)
-        MiniTest.expect.equality(state.reasoning, 'hmm')
+        MiniTest.expect.equality(state.reasoning:tostring(), 'hmm')
     end)
 
     it('accumulates reasoning from reasoning_text field', function()
@@ -129,7 +121,7 @@ describe('openai_completions.process_chunk', function()
         completions.process_chunk({
             choices = { { delta = { reasoning_text = 'ponder' } } },
         }, state)
-        MiniTest.expect.equality(state.reasoning, 'ponder')
+        MiniTest.expect.equality(state.reasoning:tostring(), 'ponder')
     end)
 
     it('returns kind=reasoning for reasoning delta', function()
@@ -294,7 +286,7 @@ describe('openai_completions.process_chunk', function()
             choices = { { delta = { content = '' } } },
         }, state)
         MiniTest.expect.equality(kind, nil)
-        MiniTest.expect.equality(state.content, '')
+        MiniTest.expect.equality(state.content:tostring(), '')
     end)
 end)
 
@@ -504,7 +496,7 @@ describe('openai_responses.process_chunk', function()
         }, state)
         MiniTest.expect.equality(kind, 'content')
         MiniTest.expect.equality(payload, 'Hello')
-        MiniTest.expect.equality(state.content, 'Hello')
+        MiniTest.expect.equality(state.content:tostring(), 'Hello')
     end)
 
     it('accumulates content from refusal.delta', function()
@@ -513,7 +505,7 @@ describe('openai_responses.process_chunk', function()
             type = 'response.refusal.delta',
             delta = 'I cannot',
         }, state)
-        MiniTest.expect.equality(state.content, 'I cannot')
+        MiniTest.expect.equality(state.content:tostring(), 'I cannot')
     end)
 
     it('accumulates reasoning from reasoning_summary_text.delta', function()
@@ -524,7 +516,7 @@ describe('openai_responses.process_chunk', function()
         }, state)
         MiniTest.expect.equality(kind, 'reasoning')
         MiniTest.expect.equality(payload, 'thinking...')
-        MiniTest.expect.equality(state.reasoning, 'thinking...')
+        MiniTest.expect.equality(state.reasoning:tostring(), 'thinking...')
     end)
 
     it('skips empty delta in output_text.delta', function()
@@ -534,7 +526,7 @@ describe('openai_responses.process_chunk', function()
             delta = '',
         }, state)
         MiniTest.expect.equality(kind, nil)
-        MiniTest.expect.equality(state.content, '')
+        MiniTest.expect.equality(state.content:tostring(), '')
     end)
 
     it('maps completed status to done', function()
@@ -679,7 +671,7 @@ describe('openai_responses.process_chunk', function()
                 },
             },
         }, state)
-        MiniTest.expect.equality(state.reasoning, 'Final summary part 1\n\nFinal summary part 2')
+        MiniTest.expect.equality(state.reasoning:tostring(), 'Final summary part 1\n\nFinal summary part 2')
     end)
 
     it('returns nil for unknown event type', function()

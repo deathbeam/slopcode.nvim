@@ -2,6 +2,8 @@
 
 local M = {}
 
+local buf = require('vim._core.stringbuffer')
+
 --- Parse SSE event data into a list of JSON objects.
 --- @param data string
 --- @return table[]
@@ -72,7 +74,7 @@ function M.stream(messages, tools, opts)
     local curl = require('slopcode.utils.curl')
     local c = curl.cmd('POST', url, { headers = headers, body = body, stream = true })
 
-    local state = { content = '', reasoning = '', tool_calls = {}, parser = parser }
+    local state = { content = buf.new(), reasoning = buf.new(), tool_calls = {}, parser = parser }
     local sse_buffer = ''
     local completed = false
     local aborted = false
@@ -124,7 +126,7 @@ function M.stream(messages, tools, opts)
             opts.on_error(state.finish_reason)
         elseif
             state.finish_reason == nil
-            and state.content == ''
+            and buf.len(state.content) == 0
             and (not state.tool_calls or not next(state.tool_calls))
         then
             local err_msg = vim.trim(sse_buffer or '')
@@ -147,9 +149,10 @@ function M.stream(messages, tools, opts)
                     tool_calls[#tool_calls + 1] = state.tool_calls[k]
                 end
             end
+
             opts.on_done({
-                content = state.content or '',
-                reasoning = state.reasoning or '',
+                content = state.content:tostring(),
+                reasoning = state.reasoning:tostring(),
                 tool_calls = tool_calls,
                 finish_reason = state.finish_reason,
                 usage = state.usage,
