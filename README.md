@@ -1,13 +1,24 @@
 <div align="center">
+  
   <img src="logo.png" alt="slopcode.nvim logo" />
 
-  *(font is [terminus](https://terminus-font.sourceforge.net/) as other fonts suck, made in [gimp](https://www.gimp.org/))*
+[![Neovix](https://img.shields.io/badge/Neovim-0.12+-blueviolet.svg?logo=neovim&style=flat-square)](https://neovim.io)
+[![CI](https://img.shields.io/github/actions/workflow/status/deathbeam/slopcode.nvim/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/deathbeam/slopcode.nvim/actions)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+
 </div>
 
-## what
+streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible API. reads files, edits code, runs commands - the usual slop pipeline. inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the model tells it to. use at your own risk (or use [script like this](scripts/sandbox.sh))
 
-streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible API. reads files, edits code, runs commands - the usual slop pipeline.  
-inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the model tells it to. use at your own risk (or use [script like this](scripts/sandbox.sh))
+<hr/>
+
+<div align="center">
+
+<a href="https://asciinema.org/a/328IPqnzL0Yu1wxR"><img width="960" height="627" alt="demo" src="https://github.com/user-attachments/assets/99279a5d-1828-4858-bc13-50f5cd5b7fb3" /></a>
+
+</div>
+
+<hr/>
 
 ## why
 
@@ -81,7 +92,3 @@ alias slop="sandbox.sh nvim -c 'lua require(\"slopcode\").open({layout=\"replace
 ## license
 
 MIT
-
-## image
-
-<img width="1290" height="1054" alt="image" src="https://github.com/user-attachments/assets/0c4b8c77-bf07-4b5a-a2b2-9bf084b425aa" />
