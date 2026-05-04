@@ -122,17 +122,35 @@ function M.stream(messages, tools, opts)
             opts.on_error(err_msg)
         elseif state.finish_reason and state.finish_reason:find('^error') then
             opts.on_error(state.finish_reason)
-        elseif state.finish_reason == nil and state.content == '' and #state.tool_calls == 0 then
+        elseif
+            state.finish_reason == nil
+            and state.content == ''
+            and (not state.tool_calls or not next(state.tool_calls))
+        then
             local err_msg = vim.trim(sse_buffer or '')
             if err_msg == '' then
                 err_msg = 'curl response ended without content or finish reason'
             end
             opts.on_error(err_msg)
         else
+            -- Normalize sparse tool_calls to contiguous array
+            local tool_calls = {}
+            if state.tool_calls then
+                local keys = {}
+                for k in pairs(state.tool_calls) do
+                    if type(k) == 'number' then
+                        keys[#keys + 1] = k
+                    end
+                end
+                table.sort(keys)
+                for _, k in ipairs(keys) do
+                    tool_calls[#tool_calls + 1] = state.tool_calls[k]
+                end
+            end
             opts.on_done({
                 content = state.content or '',
                 reasoning = state.reasoning or '',
-                tool_calls = state.tool_calls or {},
+                tool_calls = tool_calls,
                 finish_reason = state.finish_reason,
                 usage = state.usage,
                 response_id = state.response_id,

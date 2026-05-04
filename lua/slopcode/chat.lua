@@ -267,23 +267,25 @@ end
 
 --- Open a model selection prompt and update the active model.
 function M.model()
-    async.run(function()
-        local models = catalog.build()
-        if not models or #models == 0 then
-            return status.notify('No models available', 'warn')
-        end
-        local labels = {}
-        for _, m in ipairs(models) do
-            labels[#labels + 1] = m.key
-        end
-        sync()
-        local label = async.await(3, vim.ui.select, labels, { prompt = 'Select model: ' })
-        if label then
-            config.model = label
-            status.subheader1(label)
-            status.notify('Model: ' .. label, 'info', 3000)
-        end
-    end):raise_on_error()
+    async
+        .run(function()
+            local models = catalog.build()
+            if not models or #models == 0 then
+                return status.notify('No models available', 'warn')
+            end
+            local labels = {}
+            for _, m in ipairs(models) do
+                labels[#labels + 1] = m.key
+            end
+            sync()
+            local label = async.await(3, vim.ui.select, labels, { prompt = 'Select model: ' })
+            if label then
+                config.model = label
+                status.subheader1(label)
+                status.notify('Model: ' .. label, 'info', 3000)
+            end
+        end)
+        :raise_on_error()
 end
 
 return M
