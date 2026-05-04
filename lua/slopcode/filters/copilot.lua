@@ -5,6 +5,7 @@ local HEADERS = {
     ['Editor-Version'] = 'Neovim/' .. VERSION.major .. '.' .. VERSION.minor .. '.' .. VERSION.patch,
     ['Editor-Plugin-Version'] = 'slopcode/*',
     ['Copilot-Integration-Id'] = 'vscode-chat',
+    ['Openai-Intent'] = 'conversation-edits',
     ['x-github-api-version'] = '2025-10-01',
 }
 
@@ -89,7 +90,7 @@ local function fetch_copilot_token()
     if not ok or type(data) ~= 'table' or data.error then
         return nil
     end
-    local base_url = 'https://api.githubcopilot.com'
+    local base_url = 'https://api.individual.githubcopilot.com'
     if data.endpoints and data.endpoints.api then
         base_url = data.endpoints.api:gsub('/$', '')
     end
