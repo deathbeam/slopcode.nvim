@@ -150,12 +150,14 @@ function M.close()
         return
     end
 
+    -- Stop insert, close window or revert to previous buffer
     vim.cmd('stopinsert')
     local layout = vim.w[win].slopcode_layout
     if layout == 'replace' then
         pcall(vim.cmd, 'bprev')
+    else
+        pcall(vim.api.nvim_win_close, win, true)
     end
-    vim.api.nvim_win_close(win, true)
 end
 
 --- Toggle the chat window open/closed.
@@ -178,8 +180,6 @@ function M.send(user_text)
         agent.push(user_text)
         return
     end
-
-    M.open()
     async.run(agent.run, user_text)
 end
 
