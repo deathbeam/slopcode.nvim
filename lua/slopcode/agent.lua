@@ -41,8 +41,8 @@ local function stream_turn(session_id, model, parser)
         api_messages[#api_messages + 1] = m
     end
 
-    local response_text = ''
-    local reasoning_text = ''
+    local in_content = false
+    local in_reasoning = false
 
     loop.push({ type = 'stream_start' })
 
@@ -54,16 +54,24 @@ local function stream_turn(session_id, model, parser)
             model = model,
             parser = parser,
             on_reasoning = function(chunk)
-                reasoning_text = reasoning_text .. chunk
+                if not in_reasoning then
+                    in_reasoning = true
+                    in_content = false
+                    loop.push({ type = 'reasoning_start', quiet = not config.display.thinking })
+                end
+
                 loop.push({ type = 'reasoning_delta', content = chunk, quiet = not config.display.thinking })
             end,
             on_content = function(chunk)
-                response_text = response_text .. chunk
+                if not in_content then
+                    in_content = true
+                    in_reasoning = false
+                    loop.push({ type = 'content_start' })
+                end
+
                 loop.push({ type = 'content_delta', content = chunk })
             end,
             on_done = function(result)
-                result.content = response_text
-                result.reasoning = reasoning_text
                 resolve(result)
             end,
             on_abort = function()

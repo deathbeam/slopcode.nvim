@@ -219,7 +219,9 @@ local function dispatch(event)
         _stream_offset = nil
         _stream_parsed = {}
         _stream_tail = ''
-    elseif t == 'tool_start' then
+    elseif t == 'content_start' then
+        -- nothing for now
+    elseif t == 'reasoning_start' then
         -- nothing for now
     elseif t == 'tool_result' then
         ensure_blank_line(_buf)
