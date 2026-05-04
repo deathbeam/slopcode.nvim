@@ -146,7 +146,16 @@ function M.stream(messages, tools, opts)
                 end
                 table.sort(keys)
                 for _, k in ipairs(keys) do
-                    tool_calls[#tool_calls + 1] = state.tool_calls[k]
+                    local tc = state.tool_calls[k]
+                    -- Convert buf accumulators to strings
+                    local fn = tc['function']
+                    if type(fn.name) ~= 'string' then
+                        fn.name = fn.name:tostring()
+                    end
+                    if type(fn.arguments) ~= 'string' then
+                        fn.arguments = fn.arguments:tostring()
+                    end
+                    tool_calls[#tool_calls + 1] = tc
                 end
             end
 

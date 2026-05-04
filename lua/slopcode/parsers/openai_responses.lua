@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
+local buf = require('vim._core.stringbuffer')
+
 --- Convert chat/completions messages to /responses format.
 --- @param messages table[]
 --- @return string? instructions, table[] input
@@ -133,30 +135,11 @@ return {
                 state.tool_calls[state._current_fc_idx] = {
                     id = item.id or '',
                     call_id = item.call_id or item.id or '',
-                    ['function'] = { name = item.name or '', arguments = item.arguments or '' },
+                    ['function'] = { name = item.name or '', arguments = buf.new():put(item.arguments or '') },
                 }
                 return nil
             end
 
-            -- Track reasoning and message items for finalization
-            if item.type == 'reasoning' then
-                state._current_item_type = 'reasoning'
-                state._reasoning_parts = {}
-                return nil
-            end
-
-            if item.type == 'message' then
-                state._current_item_type = 'message'
-                return nil
-            end
-
-            return nil
-        end
-
-        if event_type == 'response.reasoning_summary_part.added' then
-            if state._reasoning_parts then
-                state._reasoning_parts[#state._reasoning_parts + 1] = { text = '' }
-            end
             return nil
         end
 
@@ -164,25 +147,14 @@ return {
             local text = chunk.delta or ''
             if text ~= '' then
                 state.reasoning:put(text)
-                -- Also track in parts if available
-                if state._reasoning_parts and #state._reasoning_parts > 0 then
-                    local last = state._reasoning_parts[#state._reasoning_parts]
-                    last.text = (last.text or '') .. text
-                end
                 return 'reasoning', text
             end
             return nil
         end
 
         if event_type == 'response.reasoning_summary_part.done' then
-            -- Insert paragraph separator between reasoning parts
-            if state._reasoning_parts and #state._reasoning_parts > 0 then
-                local last = state._reasoning_parts[#state._reasoning_parts]
-                last.text = (last.text or '') .. '\n\n'
-                state.reasoning:put('\n\n')
-                return 'reasoning', '\n\n'
-            end
-            return nil
+            state.reasoning:put('\n\n')
+            return 'reasoning', '\n\n'
         end
 
         if event_type == 'response.output_text.delta' then
@@ -207,21 +179,19 @@ return {
             if state.tool_calls and state._current_fc_idx then
                 local tc = state.tool_calls[state._current_fc_idx]
                 if tc then
-                    tc['function'].arguments = tc['function'].arguments .. (chunk.delta or '')
+                    tc['function'].arguments:put(chunk.delta or '')
                 end
             end
             return nil
         end
 
         if event_type == 'response.function_call_arguments.done' then
-            -- Finalize with the complete arguments from the event
             if state.tool_calls and state._current_fc_idx then
                 local tc = state.tool_calls[state._current_fc_idx]
-                if tc and chunk.arguments then
-                    tc['function'].arguments = chunk.arguments
+                if tc then
+                    tc['function'].arguments = chunk.arguments or tc['function'].arguments
                 end
             end
-            state._current_fc_idx = nil
             return nil
         end
 
@@ -229,7 +199,6 @@ return {
             local item = chunk.item
 
             if item.type == 'function_call' then
-                -- Finalize tool call: set arguments from the completed item
                 local call_id = item.call_id or item.id
                 local item_id = item.id or ''
                 local found = false
@@ -255,10 +224,8 @@ return {
                 return nil
             end
 
-            -- Reset current item tracking
+            -- Reset reasoning state
             if item.type == 'reasoning' then
-                state._current_item_type = nil
-                state._reasoning_parts = nil
                 -- Override reasoning with final summary text from the item
                 if item.summary then
                     local summary = {}
@@ -273,7 +240,6 @@ return {
             end
 
             if item.type == 'message' then
-                state._current_item_type = nil
                 return nil
             end
 
@@ -293,7 +259,6 @@ return {
                 state.response_id = response.id
             end
 
-            -- Collect any function calls from the final output
             if response.output then
                 state.tool_calls = state.tool_calls or {}
                 for _, item in ipairs(response.output) do
@@ -303,10 +268,11 @@ return {
                         local dup = false
                         for _, existing in ipairs(state.tool_calls) do
                             if existing.call_id == call_id then
-                                -- Update item_id if we didn't have it from streaming
                                 if existing.id == '' then
                                     existing.id = item_id
                                 end
+
+                                existing['function'].arguments = item.arguments or existing['function'].arguments
                                 dup = true
                                 break
                             end
@@ -341,19 +307,19 @@ return {
     --- @param response table
     --- @return string
     extract_content = function(response)
-        if response.output then
-            local text = ''
-            for _, item in ipairs(response.output) do
-                if item.content then
-                    for _, part in ipairs(item.content) do
-                        if part.text then
-                            text = text .. part.text
-                        end
+        if not response.output then
+            return ''
+        end
+        local parts = {}
+        for _, item in ipairs(response.output) do
+            if item.content then
+                for _, part in ipairs(item.content) do
+                    if part.text then
+                        parts[#parts + 1] = part.text
                     end
                 end
             end
-            return text
         end
-        return ''
+        return table.concat(parts)
     end,
 }

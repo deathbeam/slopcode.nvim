@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
+local buf = require('vim._core.stringbuffer')
+
 --- Extract the first non-empty reasoning field from a delta object.
 --- @param delta table
 --- @return string?
@@ -110,19 +112,27 @@ return {
             state.tool_calls = state.tool_calls or {}
             for _, tc in ipairs(delta.tool_calls) do
                 local idx = (tc.index or 0) + 1
-                state.tool_calls[idx] = state.tool_calls[idx]
-                    or { id = '', type = 'function', ['function'] = { name = '', arguments = '' } }
-                if tc.id then
-                    state.tool_calls[idx].id = tc.id
-                end
-                if tc['function'] then
-                    if tc['function'].name then
-                        state.tool_calls[idx]['function'].name = state.tool_calls[idx]['function'].name
-                            .. tc['function'].name
+                local existing = state.tool_calls[idx]
+                if not existing then
+                    state.tool_calls[idx] = {
+                        id = tc.id or '',
+                        type = 'function',
+                        ['function'] = {
+                            name = tc['function'] and tc['function'].name or '',
+                            arguments = buf.new():put(tc['function'] and tc['function'].arguments or ''),
+                        },
+                    }
+                else
+                    if tc.id then
+                        existing.id = tc.id
                     end
-                    if tc['function'].arguments then
-                        state.tool_calls[idx]['function'].arguments = state.tool_calls[idx]['function'].arguments
-                            .. tc['function'].arguments
+                    if tc['function'] then
+                        if tc['function'].name then
+                            existing['function'].name = existing['function'].name .. tc['function'].name
+                        end
+                        if tc['function'].arguments then
+                            existing['function'].arguments:put(tc['function'].arguments)
+                        end
                     end
                 end
             end
