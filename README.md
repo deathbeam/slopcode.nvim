@@ -59,6 +59,20 @@ require('slopcode').toggle({ layout = 'replace' })
 - for copilot, [copilot.vim](https://github.com/github/copilot.vim) or similar is needed for generating auth
 - [full config is here](lua/slopcode/config.lua)
 
+## standalone
+
+you can make alias like this:
+
+```bash
+alias slop="nvim -c 'lua require(\"slopcode\").open({layout=\"replace\"})'"
+```
+
+or if you put [sandbox.sh](scripts/sandbox.sh) in your path:
+
+```bash
+alias slop="sandbox.sh nvim -c 'lua require(\"slopcode\").open({layout=\"replace\"})'"
+```
+
 ## i have a problem
 
 - `:h slopcode.txt`
