@@ -1,16 +1,16 @@
 -- SPDX-License-Identifier: MIT
 
 return {
-    open = function()
-        require('slopcode.chat').open()
+    open = function(opts)
+        require('slopcode.chat').open(opts)
     end,
 
     close = function()
         require('slopcode.chat').close()
     end,
 
-    toggle = function()
-        require('slopcode.chat').toggle()
+    toggle = function(opts)
+        require('slopcode.chat').toggle(opts)
     end,
 
     send = function(text)

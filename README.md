@@ -48,7 +48,7 @@ config.model = 'ollama-cloud/glm-5.1' -- default model
 config.window.layout = 'vertical'     -- 'vertical' | 'horizontal' | 'float' | 'replace'
 ```
 
-you can also papss opts directly to `open()` or `toggle()`:
+you can also pass window opts directly to `open()` or `toggle()`:
 
 ```lua
 require('slopcode').open({ layout = 'float', width = 0.8, height = 0.6 })
