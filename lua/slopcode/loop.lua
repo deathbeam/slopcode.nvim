@@ -215,19 +215,10 @@ local function dispatch(event)
         _stream_offset = nil
         _stream_parsed = {}
         _stream_tail = ''
-        _buf_lines = vim.api.nvim_buf_line_count(_buf)
-        ensure_blank_line(_buf)
-        if not quiet then
-            status.start()
-        end
     elseif t == 'stream_end' then
         _stream_offset = nil
         _stream_parsed = {}
         _stream_tail = ''
-        ensure_blank_line(_buf)
-        if not quiet then
-            status.stop()
-        end
     elseif t == 'tool_start' then
         -- nothing for now
     elseif t == 'tool_result' then
@@ -241,8 +232,14 @@ local function dispatch(event)
         block_append(_buf, '[!] ' .. event.content .. '\n')
     elseif t == 'usage' then
         status.subheader2(format_usage(event))
-    elseif t == 'agent_done' then
+    elseif t == 'agent_start' then
+        status.start()
+        _buf_lines = vim.api.nvim_buf_line_count(_buf)
+        ensure_blank_line(_buf)
+    elseif t == 'agent_end' then
         status.stop()
+        _buf_lines = vim.api.nvim_buf_line_count(_buf)
+        ensure_blank_line(_buf)
     end
 end
 

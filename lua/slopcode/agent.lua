@@ -166,6 +166,7 @@ end
 --- Checks for queued messages between turns.
 --- @param user_text string
 function M.run(user_text)
+    loop.push({ type = 'agent_start' })
     _running = true
 
     local session_id = text.uuid()
@@ -176,7 +177,7 @@ function M.run(user_text)
             content = 'Error: No model/parser for: ' .. config.model,
         })
         loop.push({ type = 'stream_end' })
-        loop.push({ type = 'agent_done' })
+        loop.push({ type = 'agent_end' })
         _running = false
         return
     end
@@ -301,7 +302,7 @@ function M.run(user_text)
         loop.push({ type = 'status', content = 'Error: ' .. tostring(err) })
     end
 
-    loop.push({ type = 'agent_done' })
+    loop.push({ type = 'agent_end' })
     _running = false
 end
 

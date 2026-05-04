@@ -107,6 +107,10 @@ local function setup_buffer(buf)
         end
     end)
 
+    vim.fn.prompt_setinterrupt(buf, function()
+        require('slopcode.chat').abort()
+    end)
+
     vim.keymap.set('n', '<C-c>', function()
         require('slopcode.chat').abort()
     end, { buffer = buf, silent = true })
