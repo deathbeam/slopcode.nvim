@@ -3,7 +3,8 @@
 local M = {}
 
 local status = require('slopcode.status')
-local sync = require('slopcode.utils.vim').sync
+local vim_utils = require('slopcode.utils.vim')
+local sync = vim_utils.sync
 
 --- @type table[]  event queue for batched rendering
 local _queue = {}
@@ -11,8 +12,7 @@ local _queue = {}
 local _timer = nil
 --- @type integer?
 local _buf = nil
---- @type integer?
-local _win = nil
+
 --- @type table[]
 local _folding = {}
 --- @type function[]
@@ -157,12 +157,12 @@ local function format_usage(usage)
     return ''
 end
 
---- Apply fold ranges to the window.
---- @param win integer?
+--- Apply fold ranges to the window (auto-discovered from buffer).
 --- @param folds table[]  array of {start_line, end_line}
 --- @param clear_existing boolean
-local function apply_folds(win, folds, clear_existing)
-    if not (win and vim.api.nvim_win_is_valid(win)) or #folds == 0 then
+local function apply_folds(folds, clear_existing)
+    local win = vim_utils.win_for_buf(_buf)
+    if not win or #folds == 0 then
         return
     end
     vim.api.nvim_win_call(win, function()
@@ -220,7 +220,7 @@ local function dispatch(event)
             status.stop()
         end
     elseif t == 'tool_start' then
-    -- nothing for now
+        -- nothing for now
     elseif t == 'tool_result' then
         ensure_blank_line(_buf)
         local start_line, end_line = render_tool_block(_buf, event.name, event.label or event.args or '', event.content)
@@ -267,7 +267,7 @@ function M.drain()
     end
 
     -- Apply accumulated folds once at the end of the batch
-    apply_folds(_win, _folding, false)
+    apply_folds(_folding, false)
     _folding = {}
 
     for i = #_listeners, 1, -1 do
@@ -282,31 +282,13 @@ function M.drain()
     vim.o.lazyredraw = lazyredraw
 end
 
---- Attach the loop to a buffer and window.
+--- Attach the loop to a buffer. Window is auto-discovered from buffer.
 --- @param buf integer
---- @param win integer
-function M.attach(buf, win)
+function M.attach(buf)
     _buf = buf
-    _win = win
     _buf_lines = vim.api.nvim_buf_line_count(buf)
-    status.attach(buf, win)
+    status.attach(buf)
     status.header('slopcode')
-end
-
---- Detach the loop and reset all internal state.
-function M.detach()
-    if _timer then
-        _timer = nil
-    end
-    status.detach()
-    _buf = nil
-    _win = nil
-    _buf_lines = 0
-    _queue = {}
-    _stream_offset = nil
-    _stream_parsed = {}
-    _stream_tail = ''
-    _folding = {}
 end
 
 --- Subscribe a listener callback for all events. Returns an unsubscribe function.
@@ -363,7 +345,7 @@ function M.redraw(messages)
         end
     end
 
-    apply_folds(_win, _folding, true)
+    apply_folds(_folding, true)
     _folding = {}
     vim.o.lazyredraw = lazyredraw
 end
@@ -372,12 +354,6 @@ end
 --- @return integer?
 function M.buf()
     return _buf
-end
-
---- Get the current window handle.
---- @return integer?
-function M.win()
-    return _win
 end
 
 return M

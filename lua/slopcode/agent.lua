@@ -128,11 +128,11 @@ end
 
 --- Reset conversation state.
 function M.reset()
+    M.abort()
+
     for k in pairs(_messages) do
         _messages[k] = nil
     end
-    _running = false
-    _cancel_fn = nil
     for k in pairs(_queue) do
         _queue[k] = nil
     end
@@ -140,6 +140,10 @@ function M.reset()
         _usage[k] = 0
     end
     prompt.invalidate()
+
+    loop.redraw(_messages)
+    loop.push({ type = 'status', content = 'Conversation reset' })
+    loop.drain()
 end
 
 --- Enqueue a user message (injected before the next LLM call).

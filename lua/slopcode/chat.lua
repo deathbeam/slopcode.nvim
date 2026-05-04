@@ -8,141 +8,163 @@ local agent = require('slopcode.agent')
 local catalog = require('slopcode.catalog')
 local config = require('slopcode.config')
 local status = require('slopcode.status')
-local sync = require('slopcode.utils.vim').sync
+local vim_utils = require('slopcode.utils.vim')
+local sync = vim_utils.sync
 
---- Create the chat buffer, window, keymaps, and prompt callback.
 --- @param buf integer
---- @param win integer
-local function create_ui()
-    local layout = config.display.layout
-
-    -- Clean up previous buffer if it exists
-    local old_buf = loop.buf()
-    if old_buf and vim.api.nvim_buf_is_valid(old_buf) then
-        vim.api.nvim_buf_delete(old_buf, { force = true })
+--- @param wc table
+--- @return integer
+local function create_window(buf, wc)
+    local function resolve_dim(value, dim)
+        if value <= 1 then
+            return math.floor(dim * value)
+        end
+        return math.floor(value)
     end
 
-    local buf = vim.api.nvim_create_buf(false, true)
-    local win
+    local layout = wc.layout
 
+    local win
     if layout == 'replace' then
         win = vim.api.nvim_get_current_win()
         vim.api.nvim_win_set_buf(win, buf)
-    elseif layout == 'hsplit' then
-        win = vim.api.nvim_open_win(buf, true, { split = 'below' })
-    else -- vsplit
-        win = vim.api.nvim_open_win(buf, true, { split = 'right' })
-    end
+    elseif layout == 'float' then
+        local width = resolve_dim(wc.width, vim.o.columns)
+        local height = resolve_dim(wc.height, vim.o.lines)
+        local row = wc.row
+        local col = wc.col
+        if row == nil or col == nil then
+            row = math.floor((vim.o.lines - height) / 2)
+            col = math.floor((vim.o.columns - width) / 2)
+        end
 
-    -- Attach the event loop and status module
-    loop.attach(buf, win)
-    status.subheader1(config.model)
-
-    vim.schedule(function()
-        vim.bo[buf].buftype = 'prompt'
-        vim.bo[buf].bufhidden = 'hide'
-        vim.bo[buf].buflisted = false
-        vim.bo[buf].swapfile = false
-        vim.bo[buf].filetype = 'markdown'
-        vim.bo[buf].syntax = 'off'
-        vim.bo[buf].undolevels = -1
-
-        vim.fn.prompt_setcallback(buf, function(text)
-            if agent.running() then
-                agent.push(text)
-                return
-            end
-            if text and text ~= '' then
-                vim.schedule(function()
-                    require('slopcode.chat').send(text)
-                end)
-            end
-        end)
-        vim.fn.prompt_setprompt(buf, '> ')
-        vim.bo[buf].omnifunc = "v:lua.require'slopcode.chat'.omnifunc"
-
-        vim.keymap.set('n', '<C-c>', function()
-            require('slopcode.chat').abort()
-        end, { buffer = buf, silent = true })
-        vim.keymap.set('n', '<Tab>', function()
-            require('slopcode.chat').model()
-        end, { buffer = buf, silent = true })
-
-        vim.wo[win].foldmethod = 'manual'
-        vim.wo[win].foldtext =
-            "substitute(getline(v:foldstart),'^[▸▶] ','▸ ','').'  [+'.(v:foldend-v:foldstart+1).' lines]'"
-        vim.wo[win].foldminlines = 2
-        vim.wo[win].foldlevel = 0
-        vim.wo[win].conceallevel = 2
-        vim.wo[win].concealcursor = 'ncv'
-        vim.wo[win].wrap = true
-        vim.wo[win].linebreak = true
-        vim.wo[win].number = false
-        vim.wo[win].relativenumber = false
-        vim.wo[win].signcolumn = 'no'
-        vim.wo[win].spell = false
-        vim.wo[win].foldcolumn = '0'
-        vim.wo[win].statuscolumn = ''
-
-        -- WinClosed autocmd
-        local augroup = vim.api.nvim_create_augroup('slopcode', { clear = true })
-        vim.api.nvim_create_autocmd('WinClosed', {
-            group = augroup,
-            callback = function(args)
-                if tonumber(args.match) == win then
-                    require('slopcode.chat').close()
-                end
-            end,
+        win = vim.api.nvim_open_win(buf, true, {
+            relative = wc.relative or 'editor',
+            width = width,
+            height = height,
+            row = row,
+            col = col,
+            style = 'minimal',
+            border = wc.border or 'single',
+            title = wc.title or 'slopcode',
+            footer = wc.footer,
+            zindex = wc.zindex or 1,
         })
 
-        -- Redraw existing messages if any
-        if #agent.messages() > 0 then
-            loop.redraw(agent.messages())
+        vim.wo[win].winblend = wc.blend or 0
+    else
+        local split = layout == 'horizontal' and 'below' or 'right'
+        win = vim.api.nvim_open_win(buf, true, { split = split })
+        local width = resolve_dim(wc.width, vim.o.columns)
+        local height = resolve_dim(wc.height, vim.o.lines)
+        if layout == 'vertical' and width > 0 then
+            vim.api.nvim_win_set_width(win, width)
+        elseif layout == 'horizontal' and height > 0 then
+            vim.api.nvim_win_set_height(win, height)
         end
+    end
+
+    vim.wo[win].foldmethod = 'manual'
+    vim.wo[win].foldtext =
+        "substitute(getline(v:foldstart),'^[▸▶] ','▸ ','').'  [+'.(v:foldend-v:foldstart+1).' lines]'"
+    vim.wo[win].foldminlines = 2
+    vim.wo[win].foldlevel = 0
+    vim.wo[win].conceallevel = 2
+    vim.wo[win].concealcursor = 'ncv'
+    vim.wo[win].wrap = true
+    vim.wo[win].linebreak = true
+    vim.wo[win].number = false
+    vim.wo[win].relativenumber = false
+    vim.wo[win].signcolumn = 'no'
+    vim.wo[win].spell = false
+    vim.wo[win].foldcolumn = '0'
+    vim.wo[win].statuscolumn = ''
+
+    return win
+end
+
+--- @param buf integer
+local function setup_buffer(buf)
+    vim.bo[buf].buftype = 'prompt'
+    vim.bo[buf].bufhidden = 'hide'
+    vim.bo[buf].buflisted = false
+    vim.bo[buf].swapfile = false
+    vim.bo[buf].filetype = 'markdown'
+    vim.bo[buf].syntax = 'off'
+    vim.bo[buf].undolevels = -1
+    vim.bo[buf].omnifunc = "v:lua.require'slopcode.chat'.omnifunc"
+
+    vim.fn.prompt_setprompt(buf, '> ')
+    vim.fn.prompt_setcallback(buf, function(text)
+        if agent.running() then
+            agent.push(text)
+            return
+        end
+        if text and text ~= '' then
+            vim.schedule(function()
+                require('slopcode.chat').send(text)
+            end)
+        end
+    end)
+
+    vim.keymap.set('n', '<C-c>', function()
+        require('slopcode.chat').abort()
+    end, { buffer = buf, silent = true })
+    vim.keymap.set('n', '<Tab>', function()
+        require('slopcode.chat').model()
+    end, { buffer = buf, silent = true })
+end
+
+--- Open the chat window
+--- @param opts? table  window options override
+function M.open(opts)
+    local wc = vim.tbl_extend('force', config.window, opts or {})
+    local layout = wc.layout
+    local buf = loop.buf()
+    if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+        buf = vim.api.nvim_create_buf(false, true)
+    end
+    local win = vim_utils.win_for_buf(buf)
+    if win then
+        if vim.w[win].slopcode_layout == layout then
+            return vim.api.nvim_set_current_win(win)
+        end
+        M.close()
+    end
+
+    win = create_window(buf, wc)
+    vim.w[win].slopcode_layout = layout
+
+    vim.schedule(function()
+        setup_buffer(buf)
+        loop.attach(buf)
+        status.subheader1(config.model)
     end)
 end
 
---- Open the chat window (or focus if already open).
-function M.open()
-    local win = loop.win()
-    if win and vim.api.nvim_win_is_valid(win) then
-        return vim.api.nvim_set_current_win(win)
-    end
-    create_ui()
-end
-
---- Close the chat window, abort agent, and clean up resources.
+--- Close the chat window
 function M.close()
-    agent.abort()
-
     local buf = loop.buf()
-    local win = loop.win()
-    local layout = config.display.layout
-    loop.detach()
-    vim.cmd('stopinsert')
-
-    if layout == 'replace' then
-        -- Switch to previous buffer, then delete the chat buffer
-        if win and vim.api.nvim_win_is_valid(win) then
-            pcall(vim.cmd, 'bprev')
-        end
-        if buf and vim.api.nvim_buf_is_valid(buf) then
-            vim.api.nvim_buf_delete(buf, { force = true })
-        end
-    else
-        if win and vim.api.nvim_win_is_valid(win) then
-            vim.api.nvim_win_close(win, true)
-        end
+    local win = vim_utils.win_for_buf(buf)
+    if not win then
+        return
     end
+
+    vim.cmd('stopinsert')
+    local layout = vim.w[win].slopcode_layout
+    if layout == 'replace' then
+        pcall(vim.cmd, 'bprev')
+    end
+    vim.api.nvim_win_close(win, true)
 end
 
 --- Toggle the chat window open/closed.
-function M.toggle()
-    local win = loop.win()
-    if win and vim.api.nvim_win_is_valid(win) then
+--- @param opts? table  window options override
+function M.toggle(opts)
+    if vim_utils.win_for_buf(loop.buf()) then
         M.close()
     else
-        M.open()
+        M.open(opts)
     end
 end
 
@@ -164,9 +186,6 @@ end
 --- Reset the conversation history and redraw the buffer.
 function M.reset()
     agent.reset()
-    loop.redraw(agent.messages())
-    loop.push({ type = 'status', content = 'Conversation reset' })
-    loop.drain()
 end
 
 --- Save the conversation messages to a JSON file.
