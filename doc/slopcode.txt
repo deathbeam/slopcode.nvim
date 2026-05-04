@@ -1,5 +1,5 @@
 *slopcode.txt*
-                                  For NVIM v0.12.0    Last change: 2026 May 03
+                                  For NVIM v0.12.0    Last change: 2026 May 04
 
 ==============================================================================
 Table of Contents                                 *slopcode-table-of-contents*
@@ -63,7 +63,14 @@ CONFIGURATION                                         *slopcode-configuration*
     local config = require('slopcode.config')
     
     config.model = 'ollama-cloud/glm-5.1' -- default model
-    config.display.layout = 'vsplit'              -- 'vsplit' | 'hsplit' | 'replace'
+    config.window.layout = 'vertical'     -- 'vertical' | 'horizontal' | 'float' | 'replace'
+<
+
+you can also papss opts directly to `open()` or `toggle()`:
+
+>lua
+    require('slopcode').open({ layout = 'float', width = 0.8, height = 0.6 })
+    require('slopcode').toggle({ layout = 'replace' })
 <
 
 - environment variables for API keys: `OPENAI_API_KEY`, `OLLAMA_API_KEY`, etc, see models.dev <https://models.dev>
