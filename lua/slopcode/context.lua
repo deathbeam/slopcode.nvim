@@ -29,7 +29,7 @@ function M.build()
     for path, _ in pairs(seen) do
         local stat = vim.uv.fs_stat(path)
         if stat and stat.type ~= 'directory' then
-            local rel_path = vim.fs.relpath(cwd, path)
+            local rel_path = vim.fs.relpath(cwd, path) or path
             local fd = fs.open(path, fs.O_RDONLY, tonumber('0644', 8))
             local fstat = fs.fstat(fd)
             local data = fs.read(fd, fstat.size, 0)

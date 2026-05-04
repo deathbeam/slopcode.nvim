@@ -5,6 +5,8 @@ if vim.g.loaded_slopcode then
 end
 vim.g.loaded_slopcode = 1
 
+vim.treesitter.language.register('markdown', 'slopcode')
+
 vim.api.nvim_create_user_command('Slopcode', function(opts)
     local slop = require('slopcode')
     if opts.args and opts.args ~= '' then

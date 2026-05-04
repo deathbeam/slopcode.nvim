@@ -87,12 +87,12 @@ end
 local function setup_buffer(buf)
     vim.bo[buf].buftype = 'prompt'
     vim.bo[buf].bufhidden = 'hide'
-    vim.bo[buf].buflisted = false
     vim.bo[buf].swapfile = false
-    vim.bo[buf].filetype = 'markdown'
+    vim.bo[buf].filetype = 'slopcode'
     vim.bo[buf].syntax = 'off'
     vim.bo[buf].undolevels = -1
     vim.bo[buf].omnifunc = "v:lua.require'slopcode.chat'.omnifunc"
+    vim.api.nvim_buf_set_name(buf, 'slopcode://chat')
 
     vim.fn.prompt_setprompt(buf, '> ')
     vim.fn.prompt_setcallback(buf, function(text)
@@ -126,7 +126,7 @@ function M.open(opts)
     local layout = wc.layout
     local buf = loop.buf()
     if not (buf and vim.api.nvim_buf_is_valid(buf)) then
-        buf = vim.api.nvim_create_buf(false, true)
+        buf = vim.api.nvim_create_buf(true, true)
     end
     local win = vim_utils.win_for_buf(buf)
     if win then
