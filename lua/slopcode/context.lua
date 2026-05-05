@@ -14,10 +14,8 @@ function M.build()
         return _cached
     end
 
-    sync()
-
     local paths = require('slopcode.config').context or {}
-    local cwd = vim.fn.getcwd()
+    local cwd = vim.uv.cwd()
 
     local seen = {}
     for _, path in ipairs(paths) do

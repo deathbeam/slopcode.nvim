@@ -24,10 +24,8 @@ function M.build()
         return _cached
     end
 
-    sync()
-
     local config = require('slopcode.config')
-    local cwd = vim.fn.getcwd()
+    local cwd = vim.uv.cwd()
     _cached = vim.trim(config.system_prompt) .. '\n'
 
     local prompt_snippets = {}
