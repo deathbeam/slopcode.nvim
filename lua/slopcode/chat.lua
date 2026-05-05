@@ -177,7 +177,7 @@ end
 --- Send a user message; queues it if the agent is already running.
 --- @param user_text string
 function M.send(user_text)
-    if not user_text or user_text == '' then
+    if not user_text or vim.trim(user_text) == '' then
         return
     end
     if agent.running() then
