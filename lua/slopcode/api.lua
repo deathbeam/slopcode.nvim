@@ -48,7 +48,7 @@ function M.stream(messages, tools, opts)
 
     local req = {
         stream = true,
-        max_tokens = model.maxTokens,
+        -- max_tokens = model.maxTokens, FIXME: Should i be sending this by default at all?
     }
 
     if opts.temperature ~= nil and model.temperature then
@@ -189,8 +189,8 @@ function M.complete(messages, opts)
 
     local body = parser.build_body(model.id, messages, {}, {
         stream = false,
-        temperature = 0.1,
-        max_tokens = model.maxTokens,
+        -- temperature = 0.1, FIXME: Should i be sending this by default at all?
+        -- max_tokens = model.maxTokens, FIXME: Should i be sending this by default at all?
     })
 
     local url = model.url
