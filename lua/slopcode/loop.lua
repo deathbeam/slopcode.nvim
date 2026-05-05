@@ -221,7 +221,11 @@ local function dispatch(event)
         _stream_tail = ''
     elseif t == 'content_start' then
         -- nothing for now
+    elseif t == 'content_end' then
+        -- nothing for now
     elseif t == 'reasoning_start' and not quiet then
+        -- nothing for now
+    elseif t == 'reasoning_end' and not quiet then
         -- nothing for now
     elseif t == 'tool_result' then
         ensure_blank_line(_buf)

@@ -57,7 +57,12 @@ local function stream_turn(session_id, model, parser)
             on_reasoning = function(chunk)
                 if not in_reasoning then
                     in_reasoning = true
-                    in_content = false
+
+                    if in_content then
+                        loop.push({ type = 'content_end' })
+                        in_content = false
+                    end
+
                     loop.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
                 end
 
@@ -66,7 +71,12 @@ local function stream_turn(session_id, model, parser)
             on_content = function(chunk)
                 if not in_content then
                     in_content = true
-                    in_reasoning = false
+
+                    if in_reasoning then
+                        loop.push({ type = 'reasoning_end' })
+                        in_reasoning = false
+                    end
+
                     loop.push({ type = 'content_start' })
                 end
 
@@ -90,6 +100,12 @@ local function stream_turn(session_id, model, parser)
 
         _cancel_fn = cancel_fn
     end)
+
+    if in_content then
+        loop.push({ type = 'content_end' })
+    elseif in_reasoning then
+        loop.push({ type = 'reasoning_end' })
+    end
 
     _cancel_fn = nil
 
