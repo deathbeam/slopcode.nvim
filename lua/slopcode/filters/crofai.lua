@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
 local BASE_URL = 'https://crof.ai/v1'
+local BASE_URL_BETA = 'https://beta.crof.ai/v1'
 
 --- @async
 --- @param models table[]
@@ -25,6 +26,29 @@ return function(models)
             provider = 'crofai',
             parser = 'openai_completions',
             baseUrl = BASE_URL,
+            contextWindow = m.context_length,
+            maxTokens = m.max_completion_tokens,
+            reasoning = reasoning,
+            temperature = true,
+            tools = true,
+            input = { 'text' },
+            env = { 'CROFAI_API_KEY' },
+        }
+    end
+
+    data, err = curl.get(BASE_URL_BETA .. '/models', { json = true, max_time = 10 })
+    if err or type(data) ~= 'table' or type(data.data) ~= 'table' then
+        return models
+    end
+
+    for _, m in ipairs(data.data) do
+        local reasoning = m.reasoning_effort == true or m.custom_reasoning == true
+        models[#models + 1] = {
+            id = m.id,
+            name = m.name or m.id,
+            provider = 'crofai-beta',
+            parser = 'openai_completions',
+            baseUrl = BASE_URL_BETA,
             contextWindow = m.context_length,
             maxTokens = m.max_completion_tokens,
             reasoning = reasoning,
