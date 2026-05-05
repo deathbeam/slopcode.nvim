@@ -50,6 +50,7 @@ local function stream_turn(session_id, model, parser)
         local ok, cancel_fn = pcall(api.stream, api_messages, tools.get_definitions(), {
             session_id = session_id,
             temperature = config.temperature,
+            max_tokens = config.clamp_output_tokens,
             reasoning_effort = config.reasoning_effort,
             model = model,
             parser = parser,
@@ -57,10 +58,10 @@ local function stream_turn(session_id, model, parser)
                 if not in_reasoning then
                     in_reasoning = true
                     in_content = false
-                    loop.push({ type = 'reasoning_start', quiet = not config.display.thinking })
+                    loop.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
                 end
 
-                loop.push({ type = 'reasoning_delta', content = chunk, quiet = not config.display.thinking })
+                loop.push({ type = 'reasoning_delta', content = chunk, quiet = config.hide_reasoning })
             end,
             on_content = function(chunk)
                 if not in_content then

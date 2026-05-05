@@ -10,6 +10,12 @@ return {
     --- @type 'none' | 'low' | 'medium' | 'high'
     reasoning_effort = 'medium',
 
+    --- @type boolean whether to hide reasoning tokens in the UI
+    hide_reasoning = false,
+
+    --- @type integer clamp for maximum tokens in model output
+    clamp_output_tokens = 32000,
+
     --- @type table window options for the chat panel
     window = {
         --- @type 'vertical' | 'horizontal' | 'float' | 'replace'
@@ -34,11 +40,6 @@ return {
         zindex = 1,
         --- @type integer window transparency 0-100 (0 = opaque)
         blend = 0,
-    },
-
-    display = {
-        --- @type boolean show reasoning tokens
-        thinking = true,
     },
 
     --- @type string system prompt

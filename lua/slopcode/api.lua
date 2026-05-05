@@ -37,7 +37,7 @@ end
 --- Stream a completion request via SSE
 --- @param messages table[]
 --- @param tools table tool definitions
---- @param opts table { session_id, temperature, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
+--- @param opts table { session_id, temperature, max_tokens, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
 --- @return function  cancel_fn
 function M.stream(messages, tools, opts)
     local model, parser = opts.model, opts.parser
@@ -48,8 +48,12 @@ function M.stream(messages, tools, opts)
 
     local req = {
         stream = true,
-        -- max_tokens = model.maxTokens, FIXME: Should i be sending this by default at all?
+        max_tokens = model.maxTokens,
     }
+
+    if opts.max_tokens ~= nil then
+        req.max_tokens = math.min(opts.max_tokens, model.maxTokens)
+    end
 
     if opts.temperature ~= nil and model.temperature then
         req.temperature = opts.temperature
@@ -189,8 +193,7 @@ function M.complete(messages, opts)
 
     local body = parser.build_body(model.id, messages, {}, {
         stream = false,
-        -- temperature = 0.1, FIXME: Should i be sending this by default at all?
-        -- max_tokens = model.maxTokens, FIXME: Should i be sending this by default at all?
+        max_tokens = model.maxTokens,
     })
 
     local url = model.url
