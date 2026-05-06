@@ -1,6 +1,6 @@
 -- SPDX-License-Identifier: MIT
 
---- Tests for slopcode tool handlers and tools.execute_all
+--- Tests for slopcode tool handlers
 
 local child = MiniTest.new_child_neovim()
 local anchors = require('slopcode.anchors')
@@ -13,7 +13,7 @@ local function load_config()
     child.lua("require('slopcode.config')")
 end
 
---- Run a tool handler inside async.run + pcall (same boundary as tools.execute_all).
+--- Run a tool handler inside async.run + pcall
 --- Returns: ok, result  (ok from pcall, result is the handler return or error string)
 local function run_handler(tool_name, args)
     local code = string.format(
@@ -329,63 +329,5 @@ describe('find tool', function()
         })
         MiniTest.expect.equality(ok, false)
         MiniTest.expect.no_equality(result:find('not found'), nil)
-    end)
-end)
-
------------------------------------------------------------------------
--- Tests: tools.execute_all (integration)
------------------------------------------------------------------------
-
-describe('tools.execute_all', function()
-    it('wraps handler errors as Error: prefix string', function()
-        load_config()
-        local output = child.lua([[
-            local async = require('async')
-            local tools = require('slopcode.tools')
-
-            local tool_calls = {
-                {
-                    id = "test_enoent",
-                    ["function"] = {
-                        name = "read",
-                        arguments = vim.json.encode({ path = "/tmp/slopcode_execall_nofile.txt" }),
-                    },
-                },
-            }
-
-            local task = async.run(function()
-                return tools.execute_all(tool_calls)
-            end)
-            return task:wait()
-        ]])
-        local result = output[1].content
-        MiniTest.expect.no_equality(result:find('Error:'), nil)
-        MiniTest.expect.no_equality(result:find('File not found'), nil)
-    end)
-
-    it('returns unknown tool error for invalid tool name', function()
-        load_config()
-        local output = child.lua([[
-            local async = require('async')
-            local tools = require('slopcode.tools')
-
-            local tool_calls = {
-                {
-                    id = "test_unknown",
-                    ["function"] = {
-                        name = "nonexistent_tool",
-                        arguments = "{}",
-                    },
-                },
-            }
-
-            local task = async.run(function()
-                return tools.execute_all(tool_calls)
-            end)
-            return task:wait()
-        ]])
-        local result = output[1].content
-        MiniTest.expect.no_equality(result:find('Error:'), nil)
-        MiniTest.expect.no_equality(result:find('unknown tool'), nil)
     end)
 end)

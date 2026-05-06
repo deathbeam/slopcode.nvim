@@ -7,10 +7,10 @@ local catalog = require('slopcode.catalog')
 local api = require('slopcode.api')
 local async = require('async')
 local prompt = require('slopcode.prompt')
-local tools = require('slopcode.tools')
 local memory = require('slopcode.memory')
 local loop = require('slopcode.loop')
 local text = require('slopcode.utils.text')
+local sync = require('slopcode.utils.vim').sync
 
 --- @type table[]  conversation messages
 local _messages = {}
@@ -18,10 +18,74 @@ local _messages = {}
 local _running = false
 --- @type function?
 local _cancel_fn = nil
+--- @type vim.async.Task[]  currently running tool tasks
+local _tasks = {}
 --- @type string[]  queued user messages to inject before next turn
 local _queue = {}
 --- @type { requests: integer, input: integer, output: integer, cache_read: integer, cache_write: integer }
 local _usage = { requests = 0, input = 0, output = 0, cache_read = 0, cache_write = 0 }
+
+local function execute_tools(tool_calls)
+    local tasks = {}
+    local meta = {}
+
+    for i, tc in ipairs(tool_calls) do
+        local fn = tc['function']
+        local name = fn.name
+        local args_json = fn.arguments or '{}'
+        local call_id = tc.call_id or tc.id or ''
+        local ok, args_decoded = pcall(vim.json.decode, args_json, { luanil = { object = true, array = true } })
+
+        meta[i] = {
+            name = name,
+            label = ok and args_decoded.label,
+            args = args_json,
+            call_id = call_id,
+        }
+
+        local tool = config.tools[name]
+        local handler = tool and tool.handler
+        tasks[i] = async.run(function()
+            if not handler then
+                return 'Error: unknown tool: ' .. name
+            end
+            local ok2, args = pcall(vim.json.decode, args_json, { luanil = { object = true, array = true } })
+            if not ok2 then
+                return 'Error: invalid arguments: ' .. args
+            end
+
+            sync()
+            local ok3, result = pcall(handler, args)
+            if not ok3 then
+                return 'Error: ' .. tostring(result)
+            end
+            return result or ''
+        end)
+    end
+
+    _tasks = tasks
+    local ok, results = pcall(async.await_all, tasks)
+    if not ok then
+        results = {}
+    end
+    _tasks = {}
+
+    local output = {}
+
+    for i, res in ipairs(results) do
+        local content = res[1] or ''
+        local m = meta[i]
+        output[i] = {
+            name = m.name,
+            tool_call_id = m.call_id,
+            label = m.label,
+            args = m.args,
+            content = content,
+        }
+    end
+
+    return output
+end
 
 --- @async
 --- Stream one turn from the API.
@@ -44,10 +108,19 @@ local function stream_turn(session_id, model, parser)
     local in_content = false
     local in_reasoning = false
 
+    local tools = {}
+    for name, tool in pairs(config.tools) do
+        tools[#tools + 1] = {
+            name = name,
+            description = tool.description or '',
+            parameters = tool.parameters or { type = 'object', properties = {} },
+        }
+    end
+
     loop.push({ type = 'stream_start' })
 
     local r = async.await(function(resolve)
-        local ok, cancel_fn = pcall(api.stream, api_messages, tools.get_definitions(), {
+        local ok, cancel_fn = pcall(api.stream, api_messages, tools, {
             session_id = session_id,
             temperature = config.temperature,
             max_tokens = config.clamp_output_tokens,
@@ -143,12 +216,14 @@ end
 
 --- Abort the current run.
 function M.abort()
-    if not _cancel_fn then
-        return
+    if _cancel_fn then
+        _cancel_fn()
+        _cancel_fn = nil
     end
 
-    _cancel_fn()
-    _cancel_fn = nil
+    for _, t in ipairs(_tasks) do
+        t:close()
+    end
 end
 
 --- Reset conversation state.
@@ -272,7 +347,7 @@ function M.run(user_text)
                     },
                 }
 
-                for _, tr in ipairs(tools.execute_all(result.tool_calls)) do
+                for _, tr in ipairs(execute_tools(result.tool_calls)) do
                     loop.push({
                         type = 'tool_result',
                         name = tr.name,

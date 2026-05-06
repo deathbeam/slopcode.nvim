@@ -12,7 +12,7 @@ local function load_config()
     child.lua("require('slopcode.config')")
 end
 
---- Run a tool handler inside async.run + pcall (same boundary as tools.execute_all).
+--- Run a tool handler inside async.run + pcall
 --- Returns: ok, result  (ok from pcall, result is the handler return or error string)
 local function run_handler(tool_name, args)
     child.lua('_G._tool_args = ' .. vim.inspect(args))
