@@ -17,6 +17,13 @@ local function escape_xml(str)
     return str:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;'):gsub('"', '&quot;'):gsub("'", '&apos;') or ''
 end
 
+--- @param path string
+--- @return boolean
+local function is_dir(path)
+    local stat = vim.uv.fs_stat(path)
+    return stat and stat.type == 'directory' or false
+end
+
 --- @async
 --- @return string
 function M.build()
@@ -52,6 +59,19 @@ function M.build()
     _cached = _cached:gsub('%${DATE}', function()
         return os.date('%Y-%m-%d')
     end)
+
+    local doc_dirs = {}
+    for _, rtp in ipairs(vim.api.nvim_list_runtime_paths()) do
+        local doc = rtp .. '/doc'
+        if is_dir(doc) then
+            doc_dirs[#doc_dirs + 1] = '- ' .. doc
+        end
+    end
+    if #doc_dirs > 0 then
+        _cached = _cached:gsub('%${DOCUMENTATION_FILES}', function()
+            return table.concat(doc_dirs, '\n')
+        end)
+    end
 
     local context_files = require('slopcode.context').build()
     if #context_files > 0 then
