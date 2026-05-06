@@ -72,9 +72,9 @@ local function execute_tools(tool_calls)
 
     local output = {}
 
-    for i, res in ipairs(results) do
-        local content = res[1] or ''
-        local m = meta[i]
+    for i, m in ipairs(meta) do
+        local res = results[i] or {}
+        local content = res[1] or 'Tool call cancelled'
         output[i] = {
             name = m.name,
             tool_call_id = m.call_id,
