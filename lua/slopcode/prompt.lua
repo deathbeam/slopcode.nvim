@@ -60,6 +60,7 @@ function M.build()
         return os.date('%Y-%m-%d')
     end)
 
+    sync()
     local doc_dirs = {}
     for _, rtp in ipairs(vim.api.nvim_list_runtime_paths()) do
         local doc = rtp .. '/doc'
