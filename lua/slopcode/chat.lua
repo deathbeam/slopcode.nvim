@@ -64,6 +64,17 @@ local function create_window(buf, wc)
         end
     end
 
+    -- performance
+    vim.wo[win].number = false
+    vim.wo[win].relativenumber = false
+    vim.wo[win].signcolumn = 'no'
+    vim.wo[win].spell = false
+    vim.wo[win].foldcolumn = '0'
+    vim.wo[win].statuscolumn = ''
+    vim.wo[win].cursorcolumn = false
+    vim.wo[win].cursorline = false
+
+    -- main config
     vim.wo[win].foldmethod = 'manual'
     vim.wo[win].foldtext =
         "substitute(getline(v:foldstart),'^[▸▶] ','▸ ','').'  [+'.(v:foldend-v:foldstart+1).' lines]'"
@@ -73,25 +84,26 @@ local function create_window(buf, wc)
     vim.wo[win].concealcursor = 'ncv'
     vim.wo[win].wrap = true
     vim.wo[win].linebreak = true
-    vim.wo[win].number = false
-    vim.wo[win].relativenumber = false
-    vim.wo[win].signcolumn = 'no'
-    vim.wo[win].spell = false
-    vim.wo[win].foldcolumn = '0'
-    vim.wo[win].statuscolumn = ''
 
     return win
 end
 
 --- @param buf integer
 local function setup_buffer(buf)
-    vim.bo[buf].buftype = 'prompt'
-    vim.bo[buf].bufhidden = 'hide'
+    -- performance
     vim.bo[buf].swapfile = false
-    vim.bo[buf].filetype = 'slopcode'
     vim.bo[buf].syntax = 'off'
     vim.bo[buf].undolevels = -1
+    vim.bo[buf].autoindent = false
+    vim.bo[buf].smartindent = false
+    vim.bo[buf].indentexpr = ''
+
+    -- main config
+    vim.bo[buf].bufhidden = 'hide'
+    vim.bo[buf].buftype = 'prompt'
+    vim.bo[buf].filetype = 'slopcode'
     vim.bo[buf].omnifunc = "v:lua.require'slopcode.chat'.omnifunc"
+
     vim.api.nvim_buf_set_name(buf, 'slopcode://chat')
 
     vim.fn.prompt_setprompt(buf, '> ')
