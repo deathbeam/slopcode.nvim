@@ -97,6 +97,7 @@ local function setup_buffer(buf)
     vim.bo[buf].autoindent = false
     vim.bo[buf].smartindent = false
     vim.bo[buf].indentexpr = ''
+    vim.bo[buf].complete = 'o'
 
     -- main config
     vim.bo[buf].bufhidden = 'hide'
