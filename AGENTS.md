@@ -25,8 +25,6 @@ Tests use [mini.test](https://github.com/nvim-mini/mini.test) with busted-style 
 
 **Singleton modules, not instances.** `agent.lua`, `events.lua`, `renderer.lua`, `status.lua` store state in module-level locals (prefixed `_`). No `M.new()` pattern. Lifecycle is `attach`/`detach`.
 
-**Shared references use in-place mutation.** `agent.messages` is a reference to the internal `_messages` table. Reset and compact use `for k in pairs(t) do t[k] = nil end` — never reassign the table, or external references break.
-
 **Notifications go through `status.notify()`**, `status.notify` renders in the winbar AND calls `vim.notify`
 
 **Event bus architecture.** `events.lua` is a pure event bus with no buffer knowledge. It queues events and notifies subscribers on `drain()`. `renderer.lua` is the default subscriber — it draws rendered events to a buffer and can be swapped out. `agent.lua` only talks to `events.lua` (push/drain), never directly to the renderer.

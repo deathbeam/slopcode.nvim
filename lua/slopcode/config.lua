@@ -63,6 +63,12 @@ ${DOCUMENTATION_FILES}
 - Use ls to list files in a doc/ directory and read to open a .txt file
 - Use grep inside doc/ directories to find specific topics across files
 
+Previous conversations with you are saved as XML files in this directory (per-project):
+- ${SESSION_HISTORY_DIR}
+- Use grep to search across them or read a specific file
+- Check this when the user asks about something you discussed before, or when
+  the user's question references topics/decisions from earlier sessions
+
 Current date: ${DATE}
 Current working directory: ${CWD}]=],
 
