@@ -16,86 +16,45 @@ local SUMMARY_POINT = 0.75
 local TOOL_RESULT_MAX_CHARS = 2000
 
 -- Summarization prompts
-local SUMMARY_PREFIX = 'Previous conversation summary:\n'
+local SUMMARY_PREFIX = '[Previous conversation summary]:\n'
 
-local SUMMARIZATION_SYSTEM_PROMPT =
-    [[You are a context summarization assistant. Your task is to read a conversation between a user and an AI coding assistant, then produce a structured summary following the exact format specified.
+local SUMMARIZATION_SYSTEM_PROMPT = [[You are a context summarization assistant. ONLY output the structured summary.
+Do NOT continue the conversation. Do NOT respond to any questions.]]
 
-Do NOT continue the conversation. Do NOT respond to any questions in the conversation. ONLY output the structured summary.]]
-
-local SUMMARIZATION_PROMPT =
-    [[The conversation above is between a user and an AI coding assistant that uses tools (read/write/edit files, run commands, etc.).
-
-Create a structured context checkpoint summary that another LLM will use to continue the work. Use this EXACT format:
+local SUMMARY_TEMPLATE =
+    [[Output exactly the Markdown structure shown inside <template> and keep the section order unchanged. Do not include the <template> tags in your response.
 
 ## Goal
-[What is the user trying to accomplish? Can be multiple items if the session covers different tasks.]
+- [single-sentence task summaries]
 
 ## Constraints & Preferences
-- [Any constraints, preferences, or requirements mentioned by user]
-- [Or "(none)" if none were mentioned]
+- [user constraints, preferences, specs, or "(none)"]
 
 ## Progress
-### Done
-- [x] [Completed tasks/changes]
-
-### In Progress
-- [ ] [Current work]
-
-### Blocked
-- [Issues preventing progress, if any]
+- [x] [completed work]
+- [ ] [current work]
+- [!] [blockers]
+or "(none)"
 
 ## Key Decisions
-- **[Decision]**: [Brief rationale]
-
-## Next Steps
-1. [Ordered list of what should happen next]
+- [decision and why, or "(none)"]
 
 ## Critical Context
-- [Any data, examples, or references needed to continue]
-- [Or "(none)" if not applicable]
+- [exact file paths, error strings, identifiers, or "(none)"]
 
-Keep each section concise. Preserve exact file paths, function names, and error messages.]]
+Rules:
+- Keep every section, even when empty (use "(none)").
+- Use terse bullets, not prose.
+- Preserve exact file paths, function names, and error messages.
+- Do not mention the summary process or that context was compacted.]]
 
-local UPDATE_SUMMARIZATION_PROMPT =
-    [[The messages above are NEW conversation messages to incorporate into the existing summary provided in <previous-summary> tags.
+local CREATE_PROMPT = [[Create a new anchored summary from the conversation history above.]]
 
-Update the existing structured summary with new information. RULES:
-- PRESERVE all existing information from the previous summary
-- ADD new progress, decisions, and context from the new messages
-- UPDATE the Progress section: move items from "In Progress" to "Done" when completed
-- UPDATE "Next Steps" based on what was accomplished
-- PRESERVE exact file paths, function names, and error messages
-- If something is no longer relevant, you may remove it
-
-Use this EXACT format:
-
-## Goal
-[Preserve existing goals, add new ones if the task expanded]
-
-## Constraints & Preferences
-- [Preserve existing, add new ones discovered]
-
-## Progress
-### Done
-- [x] [Include previously done items AND newly completed items]
-
-### In Progress
-- [ ] [Current work - update based on progress]
-
-### Blocked
-- [Current blockers - remove if resolved]
-
-## Key Decisions
-- **[Decision]**: [Brief rationale] (preserve all previous, add new)
-
-## Next Steps
-1. [Update based on current state]
-
-## Critical Context
-- [Preserve important context, add new if needed]
-
-Keep each section concise. Preserve exact file paths, function names, and error messages.]]
+local UPDATE_PROMPT = [[Update the anchored summary below using the conversation history above.
+Preserve still-true details, remove stale details, and merge in the new facts.
+<previous-summary>
+%s
+</previous-summary>]]
 
 --- @param text string
 --- @return integer
@@ -138,9 +97,7 @@ local function serialize_messages(messages)
     for _, msg in ipairs(messages) do
         if msg.role == 'user' then
             local content = msg.content or ''
-            if content:match('^' .. SUMMARY_PREFIX) then
-                parts[#parts + 1] = '[Previous conversation summary]:\n' .. content
-            elseif content ~= '' then
+            if content ~= '' then
                 parts[#parts + 1] = '[User]: ' .. content
             end
         elseif msg.role == 'assistant' then
@@ -284,9 +241,10 @@ function M.compact(messages, opts)
 
     local prompt_text = '<conversation>\n' .. conversation_text .. '\n</conversation>\n\n'
     if previous_summary then
-        prompt_text = prompt_text .. '<previous-summary>\n' .. previous_summary .. '\n</previous-summary>\n\n'
+        prompt_text = prompt_text .. UPDATE_PROMPT:format(previous_summary) .. '\n\n' .. SUMMARY_TEMPLATE
+    else
+        prompt_text = prompt_text .. CREATE_PROMPT .. '\n\n' .. SUMMARY_TEMPLATE
     end
-    prompt_text = prompt_text .. (previous_summary and UPDATE_SUMMARIZATION_PROMPT or SUMMARIZATION_PROMPT)
 
     local response = api.complete({
         {

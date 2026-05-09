@@ -78,17 +78,18 @@ function M.build()
     if #context_files > 0 then
         local lines = {
             '',
-            '# Project Context',
-            '',
-            'Project-specific instructions and guidelines:',
+            '<project_context>',
         }
 
         for _, section in ipairs(context_files) do
             lines[#lines + 1] = ''
-            lines[#lines + 1] = string.format('## %s', section.path)
-            lines[#lines + 1] = ''
-            lines[#lines + 1] = section.content
+            lines[#lines + 1] = string.format('<project_instructions path="%s">', section.path)
+            lines[#lines + 1] = escape_xml(section.content)
+            lines[#lines + 1] = '</project_instructions>'
         end
+
+        lines[#lines + 1] = ''
+        lines[#lines + 1] = '</project_context>'
 
         _cached = _cached .. table.concat(lines, '\n') .. '\n'
     end
