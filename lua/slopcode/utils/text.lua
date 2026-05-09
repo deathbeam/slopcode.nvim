@@ -60,4 +60,13 @@ function M.uuid()
     )
 end
 
+function M.xml_escape(s)
+    s = string.gsub(s, '&', '&amp;')
+    s = string.gsub(s, '<', '&lt;')
+    s = string.gsub(s, '>', '&gt;')
+    s = string.gsub(s, '"', '&quot;')
+    s = string.gsub(s, "'", '&apos;')
+    return s
+end
+
 return M

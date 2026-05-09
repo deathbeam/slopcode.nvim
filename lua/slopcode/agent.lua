@@ -13,9 +13,12 @@ local memory = require('slopcode.memory')
 local events = require('slopcode.events')
 local text = require('slopcode.utils.text')
 local sync = require('slopcode.utils.vim').sync
+local sessions = require('slopcode.sessions')
 
 --- @type table[]  conversation messages
 local _messages = {}
+--- @type string?  persistent conversation ID (reset on M.reset)
+local _session_id = nil
 --- @type boolean
 local _running = false
 --- @type function?
@@ -259,17 +262,14 @@ end
 function M.reset()
     M.abort()
 
-    for k in pairs(_messages) do
-        _messages[k] = nil
-    end
-    for k in pairs(_queue) do
-        _queue[k] = nil
-    end
+    _session_id = nil
+    _messages = {}
+    _queue = {}
     for k in pairs(_usage) do
         _usage[k] = 0
     end
-    prompt.invalidate()
 
+    prompt.invalidate()
     events.push({ type = 'clear' })
     for _, msg in ipairs(_messages) do
         push_message_events(msg)
@@ -298,10 +298,13 @@ end
 --- Checks for queued messages between turns.
 --- @param user_text string
 function M.run(user_text)
-    events.push({ type = 'agent_start' })
+    if not _session_id then
+        _session_id = text.uuid()
+    end
+
+    events.push({ type = 'agent_start', session_id = _session_id })
     _running = true
 
-    local session_id = text.uuid()
     local model, parser = catalog.model()
     if not model or not parser then
         events.push({
@@ -322,13 +325,9 @@ function M.run(user_text)
             -- Compact history
             if memory.should_compact(_messages, model.contextWindow) then
                 events.push({ type = 'status', content = 'Compacting context...' })
-                local compacted = memory.compact(_messages, { model = model, parser = parser })
-                for k in pairs(_messages) do
-                    _messages[k] = nil
-                end
-                for i, msg in ipairs(compacted) do
-                    _messages[i] = msg
-                end
+                _messages = memory.compact(_messages, { model = model, parser = parser })
+                _session_id = text.uuid()
+
                 events.push({ type = 'clear' })
                 for _, msg in ipairs(_messages) do
                     push_message_events(msg)
@@ -344,7 +343,7 @@ function M.run(user_text)
             end
 
             -- Stream one turn
-            local result = stream_turn(session_id, model, parser)
+            local result = stream_turn(_session_id, model, parser)
 
             -- Update usage
             events.push({
@@ -362,6 +361,7 @@ function M.run(user_text)
             if result.aborted then
                 -- we aborted, done
                 events.push({ type = 'status', content = 'Aborted' })
+                sessions.save(_messages, _session_id)
                 return
             elseif result.error then
                 -- error, we are done
@@ -369,6 +369,7 @@ function M.run(user_text)
                     type = 'status',
                     content = 'Error: ' .. tostring(result.error),
                 })
+                sessions.save(_messages, _session_id)
                 return
             elseif result.tool_calls and #result.tool_calls > 0 then
                 -- continue to next turn
@@ -403,6 +404,7 @@ function M.run(user_text)
                         },
                     }
                 end
+                sessions.save(_messages, _session_id)
             elseif result.finish_reason == 'incomplete' then
                 -- try again
                 events.push({
@@ -419,6 +421,8 @@ function M.run(user_text)
                         reasoning = result.reasoning ~= '' and result.reasoning or nil,
                     },
                 }
+
+                sessions.save(_messages, _session_id)
 
                 -- if messages arrived during streaming, continue; otherwise stop
                 local late = M.drain()

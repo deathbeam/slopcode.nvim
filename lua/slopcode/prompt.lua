@@ -3,19 +3,10 @@
 local M = {}
 
 local sync = require('slopcode.utils.vim').sync
+local text = require('slopcode.utils.text')
 
 --- @type string?
 local _cached = nil
-
---- @param str string
---- @return string
-local function escape_xml(str)
-    if not str then
-        return ''
-    end
-
-    return str:gsub('&', '&amp;'):gsub('<', '&lt;'):gsub('>', '&gt;'):gsub('"', '&quot;'):gsub("'", '&apos;') or ''
-end
 
 --- @param path string
 --- @return boolean
@@ -74,6 +65,10 @@ function M.build()
         end)
     end
 
+    _cached = _cached:gsub('%${SESSION_HISTORY_DIR}', function()
+        return require('slopcode.sessions').dir()
+    end)
+
     local context_files = require('slopcode.context').build()
     if #context_files > 0 then
         local lines = {
@@ -84,7 +79,7 @@ function M.build()
         for _, section in ipairs(context_files) do
             lines[#lines + 1] = ''
             lines[#lines + 1] = string.format('<project_instructions path="%s">', section.path)
-            lines[#lines + 1] = escape_xml(section.content)
+            lines[#lines + 1] = text.xml_escape(section.content)
             lines[#lines + 1] = '</project_instructions>'
         end
 
@@ -109,9 +104,9 @@ function M.build()
 
         for _, skill in ipairs(skill_files) do
             lines[#lines + 1] = '  <skill>'
-            lines[#lines + 1] = '    <name>' .. escape_xml(skill.name) .. '</name>'
-            lines[#lines + 1] = '    <description>' .. escape_xml(skill.description) .. '</description>'
-            lines[#lines + 1] = '    <location>' .. escape_xml(skill.path) .. '</location>'
+            lines[#lines + 1] = '    <name>' .. text.xml_escape(skill.name) .. '</name>'
+            lines[#lines + 1] = '    <description>' .. text.xml_escape(skill.description) .. '</description>'
+            lines[#lines + 1] = '    <location>' .. text.xml_escape(skill.path) .. '</location>'
             lines[#lines + 1] = '  </skill>'
         end
 
