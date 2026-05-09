@@ -204,22 +204,6 @@ function M.reset()
     agent.reset()
 end
 
---- Save the conversation messages to a JSON file.
---- @param path? string  Output file path (prompts if omitted)
-function M.save(path)
-    path = path or vim.fn.input('Save conversation to: ', '', 'file')
-    if path == '' then
-        return status.notify('Save cancelled', 'warn')
-    end
-    local f = io.open(path, 'w')
-    if not f then
-        return status.notify('Failed to save to: ' .. path, 'error')
-    end
-    f:write(vim.json.encode({ messages = agent.messages(), saved_at = os.date('%Y-%m-%d %H:%M:%S') }))
-    f:close()
-    status.notify('Saved to ' .. path)
-end
-
 --- Abort the current streaming agent run.
 function M.abort()
     agent.abort()
