@@ -79,8 +79,10 @@ function M.save(messages, session_id)
     local lines = {}
     lines[#lines + 1] = '<conversation>'
     for _, msg in ipairs(messages) do
-        for _, l in ipairs(message_to_xml(msg)) do
-            lines[#lines + 1] = l
+        if msg.role ~= 'tool' then -- skip tool results
+            for _, l in ipairs(message_to_xml(msg)) do
+                lines[#lines + 1] = l
+            end
         end
     end
     lines[#lines + 1] = '</conversation>'
