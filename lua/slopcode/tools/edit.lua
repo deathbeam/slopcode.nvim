@@ -1,7 +1,8 @@
 -- SPDX-License-Identifier: MIT
 
-local fs = require('slopcode.utils.fs')
 local anchors = require('slopcode.anchors')
+local fs = require('slopcode.utils.fs')
+local vim_utils = require('slopcode.utils.vim')
 
 local CONTEXT_LINES = 2
 
@@ -127,7 +128,7 @@ return {
         end
 
         -- Check for unsaved buffer changes before writing
-        local modified, mod_buf = fs.is_modified_buf(path)
+        local modified, mod_buf = vim_utils.is_modified_buf(path)
         if modified then
             error(
                 'File has unsaved changes in buffer ' .. mod_buf .. ': ' .. path .. '. Save or discard changes first.',
@@ -141,7 +142,7 @@ return {
         fs.close(wfd)
 
         -- Refresh any loaded buffer from disk
-        fs.refresh_buf(path)
+        vim_utils.refresh_buf(path)
 
         -- Build response
         local msg = 'Replaced ' .. #edits .. ' range(s) in: ' .. path

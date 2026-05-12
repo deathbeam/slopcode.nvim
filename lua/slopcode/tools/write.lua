@@ -1,6 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
 local fs = require('slopcode.utils.fs')
+local vim_utils = require('slopcode.utils.vim')
 
 return {
     promptSnippet = 'Create or overwrite a file',
@@ -24,7 +25,7 @@ return {
         local content = args.content or ''
 
         -- Check for unsaved buffer changes before writing
-        local modified, mod_buf = fs.is_modified_buf(path)
+        local modified, mod_buf = vim_utils.is_modified_buf(path)
         if modified then
             error(
                 'File has unsaved changes in buffer ' .. mod_buf .. ': ' .. path .. '. Save or discard changes first.',
@@ -44,7 +45,7 @@ return {
         fs.close(fd)
 
         -- Refresh any loaded buffer from disk
-        fs.refresh_buf(path)
+        vim_utils.refresh_buf(path)
 
         return 'Wrote to: ' .. path
     end,
