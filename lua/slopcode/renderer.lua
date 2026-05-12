@@ -6,7 +6,6 @@ local M = {}
 local events = require('slopcode.events')
 local status = require('slopcode.status')
 local vim_utils = require('slopcode.utils.vim')
-local config = require('slopcode.config')
 
 --- @type integer?
 local _buf = nil

@@ -3,7 +3,6 @@
 local M = {}
 
 local fs = require('slopcode.utils.fs')
-local sync = require('slopcode.utils.vim').sync
 
 --- @type table?
 local _cached = nil

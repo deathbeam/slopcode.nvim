@@ -40,7 +40,7 @@ return {
         local data = fs.read(fd, stat.size, 0)
         fs.close(fd)
         data = data:gsub('\r\n', '\n'):gsub('\r', '\n')
-        local lines = fs.to_lines(data)
+        local lines = text.to_lines(data)
 
         local total = #lines
         if total == 0 then

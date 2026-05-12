@@ -2,18 +2,10 @@
 
 local M = {}
 
-local sync = require('slopcode.utils.vim').sync
 local text = require('slopcode.utils.text')
 
 --- @type string?
 local _cached = nil
-
---- @param path string
---- @return boolean
-local function is_dir(path)
-    local stat = vim.uv.fs_stat(path)
-    return stat and stat.type == 'directory' or false
-end
 
 --- @async
 --- @return string

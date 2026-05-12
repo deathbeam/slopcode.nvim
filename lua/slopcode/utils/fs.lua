@@ -52,20 +52,6 @@ function M.assert_file(path)
     end
 end
 
---- Split content into lines, stripping the trailing empty line from a terminal \n.
---- @param content string
---- @return string[] lines
-function M.to_lines(content)
-    if content == '' then
-        return {}
-    end
-    local lines = vim.split(content, '\n', { plain = true })
-    if #lines > 0 and lines[#lines] == '' then
-        lines[#lines] = nil
-    end
-    return lines
-end
-
 --- Resolve a path to a buffer number: try the given path, then its absolute form.
 --- @param path string
 --- @return integer bufnr (-1 if not found)

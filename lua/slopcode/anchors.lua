@@ -24,7 +24,7 @@
 
 local M = {}
 
-local fs = require('slopcode.utils.fs')
+local to_lines = require('slopcode.utils.text').to_lines
 
 local HASHLINE_BIGRAMS = {
     'aa',
@@ -1175,7 +1175,7 @@ function M.apply_edits(file_text, edits)
     local bom, text = strip_bom(file_text)
     local ending = detect_line_ending(text)
     local normalized = normalize_lf(text)
-    local file_lines = fs.to_lines(normalized)
+    local file_lines = to_lines(normalized)
     local resolved = {}
     local warnings = {}
 

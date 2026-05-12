@@ -5,6 +5,7 @@ local M = {}
 local async = require('async')
 local system = async.wrap(3, vim.system)
 local fs = require('slopcode.utils.fs')
+local text = require('slopcode.utils.text')
 
 --- @type table?
 local _cached = nil
@@ -83,7 +84,7 @@ local function parse_frontmatter(content)
         return line:match('^%-%-%-[ \t]*$') ~= nil
     end
 
-    local lines = fs.to_lines(content)
+    local lines = text.to_lines(content)
     if #lines < 2 or not is_delimiter(lines[1]) then
         return {}, content
     end

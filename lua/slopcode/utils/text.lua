@@ -60,6 +60,23 @@ function M.uuid()
     )
 end
 
+--- Split content into lines, stripping the trailing empty line from a terminal \n.
+--- @param content string
+--- @return string[] lines
+function M.to_lines(content)
+    if content == '' then
+        return {}
+    end
+    local lines = vim.split(content, '\n', { plain = true })
+    if #lines > 0 and lines[#lines] == '' then
+        lines[#lines] = nil
+    end
+    return lines
+end
+
+--- Escape special characters in a string for safe inclusion in XML.
+--- @param s string
+--- @return string
 function M.xml_escape(s)
     s = string.gsub(s, '&', '&amp;')
     s = string.gsub(s, '<', '&lt;')
