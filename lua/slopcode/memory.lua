@@ -12,7 +12,7 @@ local DEFAULT_CHARS_PER_TOKEN = 4
 
 -- Compaction thresholds
 local KEEP_RECENT = 6
-local SUMMARY_POINT = 0.75
+local SUMMARY_POINT = 0.6
 local TOOL_RESULT_MAX_CHARS = 2000
 
 -- Summarization prompts
