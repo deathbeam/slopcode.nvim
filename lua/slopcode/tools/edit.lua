@@ -4,7 +4,6 @@ local fs = require('slopcode.utils.fs')
 local anchors = require('slopcode.anchors')
 
 local CONTEXT_LINES = 2
-local MAX_OUTPUT_LINES = 12
 
 --- @param new_lines string[]  1-indexed new file lines
 --- @param first_changed integer?
@@ -20,9 +19,6 @@ local function edit_response(new_lines, first_changed, last_changed)
 
     local start = math.max(1, first_changed - CONTEXT_LINES)
     local end_line = math.min(#new_lines, last_changed + CONTEXT_LINES)
-    if end_line - start + 1 > MAX_OUTPUT_LINES then
-        return 'Anchors omitted; use read for subsequent edits.'
-    end
 
     local out = {}
     for i = start, end_line do
