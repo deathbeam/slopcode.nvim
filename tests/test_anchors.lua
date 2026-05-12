@@ -640,7 +640,7 @@ describe('edit tool', function()
         MiniTest.expect.equality(ok, true)
         MiniTest.expect.no_equality(result:find('No changes'), nil)
     end)
-    it('warns about boundary duplication', function()
+    it('auto-absorbs boundary duplicates', function()
         load_config()
         write_temp('/tmp/slopcode_test_ef_boundary.txt', 'aaa\nbbb\nccc')
         local ok_read, read_result = run_handler('read', { path = '/tmp/slopcode_test_ef_boundary.txt' })
@@ -653,7 +653,7 @@ describe('edit tool', function()
                 anchors_list[line_num] = line_num .. hash
             end
         end
-        -- Replace line 2 with content ending in 'ccc' (matches line 3)
+        -- Replace line 2 with content that matches line 3 — should auto-absorb
         local ok, result = run_handler('edit', {
             path = '/tmp/slopcode_test_ef_boundary.txt',
             edits = {
@@ -661,7 +661,7 @@ describe('edit tool', function()
             },
         })
         MiniTest.expect.equality(ok, true)
-        MiniTest.expect.no_equality(result:find('boundary duplication'), nil)
+        MiniTest.expect.no_equality(result:find('Auto-absorbed', 1, true), nil)
     end)
     it('includes anchor response with changed range', function()
         load_config()

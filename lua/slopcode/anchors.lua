@@ -857,26 +857,134 @@ local function strip_bom(content)
     return '', content
 end
 
---- Check for boundary duplication: last replacement line matches next surviving line.
+--- Auto-absorb boundary duplication: replacement lines that duplicate adjacent
+--- surviving file lines are absorbed into the edit range instead of being
+--- duplicated. Returns widened edits and warnings.
 --- @param file_lines string[] 1-indexed original file lines
 --- @param resolved table[] sorted resolved edits with start_line, end_line, repl_lines
+--- @return table[] widened resolved edits
 --- @return string[] warnings
-local function boundary_dupes(file_lines, resolved)
+local function absorb_boundary_duplicates(file_lines, resolved)
     local warnings = {}
-    for i, r in ipairs(resolved) do
-        if #r.repl_lines > 0 then
-            local last_repl = r.repl_lines[#r.repl_lines]:gsub('%s+$', '')
-            if r.end_line < #file_lines then
-                local next_surviving = file_lines[r.end_line + 1]:gsub('%s+$', '')
-                if last_repl ~= '' and last_repl == next_surviving then
-                    warnings[#warnings + 1] = 'Potential boundary duplication after edit '
-                        .. i
-                        .. ': the replacement ends with a line that matches the next surviving line.'
-                end
-            end
+    -- Collect all target lines across edits to avoid absorbing lines
+    -- that belong to another edit's range.
+    local all_targets = {}
+    for _, r in ipairs(resolved) do
+        for ln = r.start_line, r.end_line do
+            all_targets[ln] = true
         end
     end
-    return warnings
+
+    -- Deduplicate warnings by range key
+    local emitted_keys = {}
+
+    local widened = {}
+    for i, r in ipairs(resolved) do
+        local start_line = r.start_line
+        local end_line = r.end_line
+        local repl_lines = r.repl_lines
+
+        -- Check prefix: do the replacement's first lines match the file lines immediately before the range?
+        if #repl_lines > 0 and start_line > 1 then
+            local prefix_count = 0
+            local max_prefix = math.min(#repl_lines, start_line - 1)
+            for count = max_prefix, 1, -1 do
+                local matches = true
+                for offset = 0, count - 1 do
+                    local file_line = file_lines[start_line - count + offset] or ''
+                    local repl_line = repl_lines[offset + 1] or ''
+                    if file_line ~= repl_line then
+                        matches = false
+                        break
+                    end
+                end
+                if matches then
+                    -- Check that none of the to-be-absorbed lines are targeted by another edit
+                    local safe = true
+                    for offset = 0, count - 1 do
+                        if all_targets[start_line - count + offset] then
+                            safe = false
+                            break
+                        end
+                    end
+                    if safe then
+                        prefix_count = count
+                        break
+                    end
+                end
+            end
+            if prefix_count > 0 then
+                local key = 'prefix:' .. (start_line - prefix_count) .. '..' .. (start_line - 1)
+                if not emitted_keys[key] then
+                    emitted_keys[key] = true
+                    warnings[#warnings + 1] = 'Auto-absorbed '
+                        .. prefix_count
+                        .. ' duplicate line(s) before edit '
+                        .. i
+                        .. ': file lines '
+                        .. (start_line - prefix_count)
+                        .. '..'
+                        .. (start_line - 1)
+                        .. ' matched the replacement leading lines; widened deletion to absorb them.'
+                end
+                start_line = start_line - prefix_count
+            end
+        end
+
+        -- Check suffix: do the replacement's last lines match the file lines immediately after the range?
+        if #repl_lines > 0 and end_line < #file_lines then
+            local suffix_count = 0
+            local max_suffix = math.min(#repl_lines, #file_lines - end_line)
+            for count = max_suffix, 1, -1 do
+                local matches = true
+                for offset = 0, count - 1 do
+                    local file_line = file_lines[end_line + 1 + offset] or ''
+                    local repl_line = repl_lines[#repl_lines - count + 1 + offset] or ''
+                    if file_line ~= repl_line then
+                        matches = false
+                        break
+                    end
+                end
+                if matches then
+                    -- Check that none of the to-be-absorbed lines are targeted by another edit
+                    local safe = true
+                    for offset = 0, count - 1 do
+                        if all_targets[end_line + 1 + offset] then
+                            safe = false
+                            break
+                        end
+                    end
+                    if safe then
+                        suffix_count = count
+                        break
+                    end
+                end
+            end
+            if suffix_count > 0 then
+                local key = 'suffix:' .. (end_line + 1) .. '..' .. (end_line + suffix_count)
+                if not emitted_keys[key] then
+                    emitted_keys[key] = true
+                    warnings[#warnings + 1] = 'Auto-absorbed '
+                        .. suffix_count
+                        .. ' duplicate line(s) after edit '
+                        .. i
+                        .. ': file lines '
+                        .. (end_line + 1)
+                        .. '..'
+                        .. (end_line + suffix_count)
+                        .. ' matched the replacement trailing lines; widened deletion to absorb them.'
+                end
+                end_line = end_line + suffix_count
+            end
+        end
+
+        widened[#widened + 1] = {
+            start_line = start_line,
+            end_line = end_line,
+            repl_lines = repl_lines,
+        }
+    end
+    return widened, warnings
 end
 
 --- Find the changed line range between old and new file content
@@ -1055,7 +1163,7 @@ end
 
 --- Apply anchor-based edits to file content.
 --- Takes raw file text, handles BOM, line-ending normalization, anchor validation,
---- edit application, boundary checks, and line-ending restoration internally.
+--- edit application, boundary absorption, and line-ending restoration internally.
 --- Pure function — no I/O, no Neovim dependency.
 --- @param file_text string Raw file content (may have BOM, CRLF, etc.)
 --- @param edits table[] Each edit: { start_anchor: string, end_anchor: string, repl_lines: string[] }
@@ -1167,6 +1275,13 @@ function M.apply_edits(file_text, edits)
         end
     end
 
+    -- Auto-absorb boundary duplicates
+    local widened, boundary_warnings = absorb_boundary_duplicates(file_lines, resolved)
+    for _, w in ipairs(boundary_warnings) do
+        warnings[#warnings + 1] = w
+    end
+    resolved = widened
+
     -- Build result in a single forward pass
     local new_lines = {}
     local src = 1
@@ -1183,12 +1298,6 @@ function M.apply_edits(file_text, edits)
 
     for i = src, #file_lines do
         new_lines[#new_lines + 1] = file_lines[i]
-    end
-
-    -- Check for boundary duplication
-    local boundary_warnings = boundary_dupes(file_lines, resolved)
-    for _, w in ipairs(boundary_warnings) do
-        warnings[#warnings + 1] = w
     end
 
     -- Compute changed range
