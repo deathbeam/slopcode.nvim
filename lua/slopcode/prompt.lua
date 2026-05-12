@@ -50,22 +50,10 @@ function M.build()
     _cached = _cached:gsub('%${DATE}', function()
         return os.date('%Y-%m-%d')
     end)
-
-    sync()
-    local doc_dirs = {}
-    for _, rtp in ipairs(vim.api.nvim_list_runtime_paths()) do
-        local doc = rtp .. '/doc'
-        if is_dir(doc) then
-            doc_dirs[#doc_dirs + 1] = '- ' .. doc
-        end
-    end
-    if #doc_dirs > 0 then
-        _cached = _cached:gsub('%${DOCUMENTATION_FILES}', function()
-            return table.concat(doc_dirs, '\n')
-        end)
-    end
-
-    _cached = _cached:gsub('%${SESSION_HISTORY_DIR}', function()
+    _cached = _cached:gsub('%${VIMRUNTIME}', function()
+        return os.getenv('VIMRUNTIME') or ''
+    end)
+    _cached = _cached:gsub('%${SESSIONS_DIR}', function()
         return require('slopcode.sessions').dir()
     end)
 
@@ -97,7 +85,7 @@ function M.build()
             "Use the read tool to load a skill's file when the task matches its description.",
             'When a skill file references a relative path, resolve it against the skill directory',
             '(parent of SKILL.md) and use that absolute path in tool commands.',
-            'When /<skill_name> is used, treat it as skill activation and load the corresponding skill file.',
+            'When /skill_name is used, treat it as skill activation and load the corresponding skill file.',
             '',
             '<available_skills>',
         }

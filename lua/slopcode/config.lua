@@ -55,16 +55,16 @@ Guidelines:
 ${PROMPT_GUIDELINES}
 
 Neovim documentation (read only when the user asks about Neovim/Vim itself, its API, options, keymaps, or built-in features):
-${DOCUMENTATION_FILES}
+- ${VIMRUNTIME}/doc
 - help.txt is the main index (start here for any topic)
 - Each .txt file is a help document, e.g. options.txt, fold.txt, map.txt
 - Files contain cross-references like |topic| — follow them by reading the referenced section
 - When exploring a topic, read the file completely and follow cross-references to related docs
 - Use ls to list files in a doc/ directory and read to open a .txt file
-- Use grep inside doc/ directories to find specific topics across files
+- Use grep inside doc/ directory to find specific topics across files
 
 Previous conversations with you are saved as XML files in this directory (per-project):
-- ${SESSION_HISTORY_DIR}
+- ${SESSIONS_DIR}
 - Use grep to search across them or read a specific file
 - Check this when the user asks about something you discussed before, or when
   the user's question references topics/decisions from earlier sessions
