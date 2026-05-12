@@ -43,6 +43,10 @@ return {
 
         if opts.reasoning_effort ~= nil then
             body.reasoning_effort = opts.reasoning_effort
+            body.enable_thinking = true
+            body.thinking = {
+                type = 'enabled',
+            }
         end
 
         if opts.max_tokens ~= nil then

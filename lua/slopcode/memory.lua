@@ -105,8 +105,8 @@ local function serialize_messages(messages)
             local reasoning_parts = {}
             local tool_calls = {}
 
-            if msg._meta and msg._meta.reasoning then
-                reasoning_parts[#reasoning_parts + 1] = msg._meta.reasoning
+            if msg.reasoning_content and msg.reasoning_content ~= '' then
+                reasoning_parts[#reasoning_parts + 1] = msg.reasoning_content
             end
             if msg.content and msg.content ~= '' then
                 text_parts[#text_parts + 1] = msg.content

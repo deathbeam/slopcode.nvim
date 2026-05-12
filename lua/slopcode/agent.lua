@@ -376,11 +376,8 @@ function M.run(user_text)
                 _messages[#_messages + 1] = {
                     role = 'assistant',
                     content = result.content ~= '' and result.content or nil,
+                    reasoning_content = result.reasoning ~= '' and result.reasoning,
                     tool_calls = result.tool_calls,
-
-                    _meta = {
-                        reasoning = result.reasoning ~= '' and result.reasoning,
-                    },
                 }
 
                 for _, tr in ipairs(execute_tools(result.tool_calls)) do
@@ -416,10 +413,7 @@ function M.run(user_text)
                 _messages[#_messages + 1] = {
                     role = 'assistant',
                     content = result.content,
-
-                    _meta = {
-                        reasoning = result.reasoning ~= '' and result.reasoning or nil,
-                    },
+                    reasoning_content = result.reasoning ~= '' and result.reasoning or nil,
                 }
 
                 sessions.save(_messages, _session_id)
