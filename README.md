@@ -10,6 +10,9 @@
 
 streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible API. reads files, edits code, runs commands - the usual slop pipeline. inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the model tells it to. use at your own risk (or use [script like this](scripts/sandbox.sh))
 
+> [!WARNING]
+> Requires latest Neovim Nightly with [this commit](https://github.com/neovim/neovim/commit/a977e1077be262563197049576e03f40949db6c3)
+
 <hr/>
 
 <div align="center">
