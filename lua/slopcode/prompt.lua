@@ -53,8 +53,9 @@ function M.build()
     _cached = _cached:gsub('%${VIMRUNTIME}', function()
         return os.getenv('VIMRUNTIME') or ''
     end)
+    local dir = require('slopcode.sessions').dir()
     _cached = _cached:gsub('%${SESSIONS_DIR}', function()
-        return require('slopcode.sessions').dir()
+        return dir
     end)
 
     local context_files = require('slopcode.context').build()
