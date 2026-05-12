@@ -1,5 +1,5 @@
 *slopcode.txt*
-                                  For NVIM v0.12.0    Last change: 2026 May 09
+                                  For NVIM v0.12.0    Last change: 2026 May 12
 
 ==============================================================================
 Table of Contents                                 *slopcode-table-of-contents*
@@ -18,6 +18,9 @@ by pi.dev <https://pi.dev/>, this thing will happily run whatever the model
 tells it to. use at your own risk (or use script like this
 <scripts/sandbox.sh>)
 
+
+  [!WARNING] Requires latest Neovim Nightly with this commit
+  <https://github.com/neovim/neovim/commit/a977e1077be262563197049576e03f40949db6c3>
 
 
 WHY                                                             *slopcode-why*
