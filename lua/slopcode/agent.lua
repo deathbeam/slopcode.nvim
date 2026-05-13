@@ -376,7 +376,7 @@ function M.run(user_text)
                 _messages[#_messages + 1] = {
                     role = 'assistant',
                     content = result.content ~= '' and result.content or nil,
-                    reasoning_content = result.reasoning ~= '' and result.reasoning,
+                    reasoning_content = result.reasoning ~= '' and result.reasoning or nil,
                     tool_calls = result.tool_calls,
                 }
 
