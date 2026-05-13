@@ -27,10 +27,14 @@ return {
             error('url is required', 0)
         end
         local result = system({ 'lynx', '-dump', url }, { timeout = 30000 })
-        local output = vim.trim((result.stdout or '') .. (result.stderr or ''))
         if result.code ~= 0 then
-            error('(exit ' .. result.code .. '): ' .. output, 0)
+            local err = vim.trim(result.stderr or '')
+            if err == '' then
+                err = 'lynx exited with code ' .. result.code
+            end
+            error(err, 0)
         end
+        local output = vim.trim(result.stdout or '')
         local lines = vim.split(output, '\n', { plain = true })
         local total = #lines
         if total == 0 then

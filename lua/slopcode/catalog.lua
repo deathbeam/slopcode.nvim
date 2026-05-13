@@ -150,8 +150,9 @@ function M.build()
             models = filtered
         end
     end
+    local validated = {}
 
-    for i, m in ipairs(models) do
+    for _, m in ipairs(models) do
         m.key = m.provider .. '/' .. m.id
         if not m.headers then
             m.headers = make_headers(m.env)
@@ -159,19 +160,20 @@ function M.build()
         if not m.url or m.url == '' then
             m.url = resolve_url(m, config)
         end
-        if not m.url or m.url == '' or not m.parser or not m.headers then
-            table.remove(models, i)
-        end
         if not m.contextWindow then
             m.contextWindow = 128000
         end
         if not m.maxTokens then
             m.maxTokens = 4096
         end
+
+        if m.url and m.url ~= '' and m.parser and m.headers then
+            validated[#validated + 1] = m
+        end
     end
 
-    _cached_models = models
-    return models
+    _cached_models = validated
+    return validated
 end
 
 --- @async
@@ -194,6 +196,7 @@ end
 --- Invalidate cached models so next build() re-fetches.
 function M.invalidate()
     _cached_models = nil
+    _cached_raw = nil
 end
 
 return M

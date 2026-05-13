@@ -39,6 +39,7 @@ function M.build()
         end
     end
 
+    _cached = sections
     return sections
 end
 

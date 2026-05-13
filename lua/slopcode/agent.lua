@@ -54,14 +54,13 @@ local function execute_tools(tool_calls)
             if not handler then
                 return 'Error: unknown tool: ' .. name
             end
-            local ok2, args = pcall(vim.json.decode, args_json, { luanil = { object = true, array = true } })
-            if not ok2 then
-                return 'Error: invalid arguments: ' .. args
+            if not ok then
+                return 'Error: invalid tool call arguments: ' .. args_json
             end
 
             sync()
-            local ok3, result = pcall(handler, args)
-            if not ok3 then
+            local ok2, result = pcall(handler, args_decoded)
+            if not ok2 then
                 return 'Error: ' .. tostring(result)
             end
             return result or ''
@@ -271,9 +270,6 @@ function M.reset()
 
     prompt.invalidate()
     events.push({ type = 'clear' })
-    for _, msg in ipairs(_messages) do
-        push_message_events(msg)
-    end
     events.push({ type = 'status', content = 'Conversation reset' })
     events.drain()
 end

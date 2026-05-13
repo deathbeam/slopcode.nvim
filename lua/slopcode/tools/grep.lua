@@ -83,12 +83,12 @@ local function parse_rg_json(json_lines, context, max_line_len, base_path)
             last_file = m.file
         end
 
-        local text = text.line(m.text, max_line_len)
+        local truncated = text.line(m.text, max_line_len)
         if m.is_match then
             match_count = match_count + 1
-            formatted[#formatted + 1] = m.file .. ':' .. anchors.format(m.line_num, m.text) .. text
+            formatted[#formatted + 1] = m.file .. ':' .. anchors.format(m.line_num, m.text) .. truncated
         else
-            formatted[#formatted + 1] = m.file .. '-' .. m.line_num .. '- ' .. text
+            formatted[#formatted + 1] = m.file .. '-' .. m.line_num .. '- ' .. truncated
         end
     end
 
