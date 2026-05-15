@@ -29,6 +29,7 @@ streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible A
 - **hash-anchored edits** - stateless line hashing so the edit calls reference stable hashes instead of repeating code
 - **minimal** - ~4k lines of Lua. roughly 10× smaller than other AI slop generators. no bloat, no opinions about your workflow. just a loop and some tools
 - **native** - understands neovim documentation and commands, use prompt buffer for input, folds for output, winbar for status, busy indicator, treesitter for visuals
+- **history** - sessions are automatically stored per project and can be recalled in conversation by asking about them
 - **memory compaction** - auto-summarizes old messages at 75% context window so long sessions don't explode
 - **model catalog** - fetches models from [models.dev](https://models.dev) + bunch of extra in [filters](/lua/slopcode/filters/)
 - **extensible** - tool registry ([but no MCP](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/)), [agents.md](https://agents.md/) and [skills.sh](https://skills.sh/) support, plug in whatever you need
