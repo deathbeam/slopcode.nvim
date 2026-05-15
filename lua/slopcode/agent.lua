@@ -101,12 +101,14 @@ local function push_message_events(msg)
     elseif msg.role == 'assistant' then
         events.push({ type = 'stream_start', quiet = true })
         if meta.reasoning and meta.reasoning ~= '' then
-            events.push({ type = 'reasoning_start' })
-            events.push({ type = 'reasoning_delta', content = meta.reasoning })
+            events.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
+            events.push({ type = 'reasoning_delta', content = meta.reasoning, quiet = config.hide_reasoning })
+            events.push({ type = 'reasoning_end', quiet = config.hide_reasoning })
         end
         if msg.content and msg.content ~= '' then
             events.push({ type = 'content_start' })
             events.push({ type = 'content_delta', content = msg.content })
+            events.push({ type = 'content_end' })
         end
         events.push({ type = 'stream_end', quiet = true })
     elseif msg.role == 'tool' then
@@ -179,7 +181,7 @@ local function stream_turn(session_id, model, parser)
                     in_content = true
 
                     if in_reasoning then
-                        events.push({ type = 'reasoning_end' })
+                        events.push({ type = 'reasoning_end', quiet = config.hide_reasoning })
                         in_reasoning = false
                     end
 
@@ -210,7 +212,7 @@ local function stream_turn(session_id, model, parser)
     if in_content then
         events.push({ type = 'content_end' })
     elseif in_reasoning then
-        events.push({ type = 'reasoning_end' })
+        events.push({ type = 'reasoning_end', quiet = config.hide_reasoning })
     end
 
     _cancel_fn = nil
