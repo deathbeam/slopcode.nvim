@@ -888,7 +888,7 @@ local function absorb_boundary_duplicates(file_lines, resolved)
         if #repl_lines > 0 and start_line > 1 then
             local prefix_count = 0
             local max_prefix = math.min(#repl_lines, start_line - 1)
-            for count = max_prefix, 1, -1 do
+            for count = max_prefix, 2, -1 do
                 local matches = true
                 for offset = 0, count - 1 do
                     local file_line = file_lines[start_line - count + offset] or ''
@@ -935,7 +935,7 @@ local function absorb_boundary_duplicates(file_lines, resolved)
         if #repl_lines > 0 and end_line < #file_lines then
             local suffix_count = 0
             local max_suffix = math.min(#repl_lines, #file_lines - end_line)
-            for count = max_suffix, 1, -1 do
+            for count = max_suffix, 2, -1 do
                 local matches = true
                 for offset = 0, count - 1 do
                     local file_line = file_lines[end_line + 1 + offset] or ''

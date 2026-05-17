@@ -640,9 +640,9 @@ describe('edit tool', function()
         MiniTest.expect.equality(ok, true)
         MiniTest.expect.no_equality(result:find('No changes'), nil)
     end)
-    it('auto-absorbs boundary duplicates', function()
+    it('auto-absorbs 2+ boundary duplicates', function()
         load_config()
-        write_temp('/tmp/slopcode_test_ef_boundary.txt', 'aaa\nbbb\nccc')
+        write_temp('/tmp/slopcode_test_ef_boundary.txt', 'aaa\nbbb\nccc\nddd')
         local ok_read, read_result = run_handler('read', { path = '/tmp/slopcode_test_ef_boundary.txt' })
         MiniTest.expect.equality(ok_read, true)
         local read_lines = vim.split(read_result, '\n', { plain = true })
@@ -653,11 +653,10 @@ describe('edit tool', function()
                 anchors_list[line_num] = line_num .. hash
             end
         end
-        -- Replace line 2 with content that matches line 3 — should auto-absorb
         local ok, result = run_handler('edit', {
             path = '/tmp/slopcode_test_ef_boundary.txt',
             edits = {
-                { start_anchor = anchors_list[2], end_anchor = anchors_list[2], replacement = { 'ccc' } },
+                { start_anchor = anchors_list[1], end_anchor = anchors_list[2], replacement = { 'ccc', 'ddd' } },
             },
         })
         MiniTest.expect.equality(ok, true)
