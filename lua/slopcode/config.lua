@@ -82,7 +82,6 @@ Current working directory: ${CWD}]=],
     filters = {
         copilot = require('slopcode.filters.copilot'),
         ollama = require('slopcode.filters.ollama'),
-        crofai = require('slopcode.filters.crofai'),
         anthropic = require('slopcode.filters.anthropic'),
         google = require('slopcode.filters.google'),
     },
