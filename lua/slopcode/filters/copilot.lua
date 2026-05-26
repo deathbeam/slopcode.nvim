@@ -1,5 +1,7 @@
 -- SPDX-License-Identifier: MIT
 
+local sync = require('slopcode.utils.vim').sync
+
 local VERSION = vim.version()
 local HEADERS = {
     ['Editor-Version'] = 'Neovim/' .. VERSION.major .. '.' .. VERSION.minor .. '.' .. VERSION.patch,
@@ -49,6 +51,7 @@ end
 --- Read the Copilot OAuth token from disk.
 --- @return string?
 local function get_oauth_token()
+    sync()
     local dir = config_dir()
     if not dir then
         return nil
