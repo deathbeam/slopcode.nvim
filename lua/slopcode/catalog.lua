@@ -10,6 +10,7 @@ local _cached_raw = nil
 local NPM_TO_PARSER = {
     ['@ai-sdk/openai'] = 'openai_responses',
     ['@ai-sdk/openai-compatible'] = 'openai_completions',
+    ['@openrouter/ai-sdk-provider'] = 'openai_completions',
 }
 
 --- Build a headers function that reads the first non-empty env key as a Bearer token.
