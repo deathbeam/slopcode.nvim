@@ -154,60 +154,45 @@ local function stream_turn(session_id, model, parser)
 
     events.push({ type = 'stream_start' })
 
-    local r = async.await(function(resolve)
-        local ok, cancel_fn = pcall(api.stream, api_messages, tools, {
-            session_id = session_id,
-            temperature = config.temperature,
-            max_tokens = config.clamp_output_tokens,
-            reasoning_effort = config.reasoning_effort,
-            model = model,
-            parser = parser,
-            on_reasoning = function(chunk)
-                if not in_reasoning then
-                    in_reasoning = true
+    local r = api.stream(api_messages, tools, {
+        session_id = session_id,
+        temperature = config.temperature,
+        max_tokens = config.clamp_output_tokens,
+        reasoning_effort = config.reasoning_effort,
+        model = model,
+        parser = parser,
+        on_start = function(cancel)
+            _cancel_fn = cancel
+        end,
+        on_reasoning = function(chunk)
+            if not in_reasoning then
+                in_reasoning = true
 
-                    if in_content then
-                        events.push({ type = 'content_end' })
-                        in_content = false
-                    end
-
-                    events.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
+                if in_content then
+                    events.push({ type = 'content_end' })
+                    in_content = false
                 end
 
-                events.push({ type = 'reasoning_delta', content = chunk, quiet = config.hide_reasoning })
-            end,
-            on_content = function(chunk)
-                if not in_content then
-                    in_content = true
+                events.push({ type = 'reasoning_start', quiet = config.hide_reasoning })
+            end
 
-                    if in_reasoning then
-                        events.push({ type = 'reasoning_end', quiet = config.hide_reasoning })
-                        in_reasoning = false
-                    end
+            events.push({ type = 'reasoning_delta', content = chunk, quiet = config.hide_reasoning })
+        end,
+        on_content = function(chunk)
+            if not in_content then
+                in_content = true
 
-                    events.push({ type = 'content_start' })
+                if in_reasoning then
+                    events.push({ type = 'reasoning_end', quiet = config.hide_reasoning })
+                    in_reasoning = false
                 end
 
-                events.push({ type = 'content_delta', content = chunk })
-            end,
-            on_done = function(result)
-                resolve(result)
-            end,
-            on_abort = function()
-                resolve({ aborted = true })
-            end,
-            on_error = function(err)
-                resolve({ error = err })
-            end,
-        })
+                events.push({ type = 'content_start' })
+            end
 
-        if not ok or type(cancel_fn) ~= 'function' then
-            resolve({ error = tostring(cancel_fn) })
-            return
-        end
-
-        _cancel_fn = cancel_fn
-    end)
+            events.push({ type = 'content_delta', content = chunk })
+        end,
+    })
 
     if in_content then
         events.push({ type = 'content_end' })

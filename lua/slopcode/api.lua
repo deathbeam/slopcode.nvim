@@ -2,6 +2,7 @@
 
 local M = {}
 
+local async = require('async')
 local buf = require('vim._core.stringbuffer')
 
 --- Parse SSE event data into a list of JSON objects.
@@ -35,15 +36,15 @@ local function dispatch_chunk(event, state, opts)
 end
 
 --- Stream a completion request via SSE
+--- @async
 --- @param messages table[]
 --- @param tools table tool definitions
---- @param opts table { session_id, temperature, max_tokens, reasoning_effort, model, parser, on_content, on_reasoning, on_done, on_abort, on_error }
---- @return function  cancel_fn
+--- @param opts table { session_id, temperature, max_tokens, reasoning_effort, model, parser, on_start, on_content, on_reasoning }
+--- @return table result
 function M.stream(messages, tools, opts)
     local model, parser = opts.model, opts.parser
     if not model or not parser then
-        opts.on_error('No model/parser provided')
-        error('No model/parser provided')
+        return { error = 'No model/parser provided' }
     end
 
     local req = {
@@ -83,101 +84,115 @@ function M.stream(messages, tools, opts)
     local completed = false
     local aborted = false
 
-    local job = vim.system(c.args, {
-        text = true,
-        stdout = function(err, data)
-            if err or not data or aborted then
-                return
-            end
-            sse_buffer = sse_buffer .. data
-            while true do
-                local event_end = sse_buffer:find('\n\n')
-                if not event_end then
-                    break
+    local job
+
+    local ok, r = pcall(async.await, function(resolve)
+        job = vim.system(c.args, {
+            text = true,
+            stdout = function(err, data)
+                if err or not data or aborted then
+                    return
                 end
-                local event_text = sse_buffer:sub(1, event_end - 1)
-                sse_buffer = sse_buffer:sub(event_end + 2)
-                for _, event in ipairs(parse_sse(event_text)) do
+                sse_buffer = sse_buffer .. data
+                while true do
+                    local event_end = sse_buffer:find('\n\n')
+                    if not event_end then
+                        break
+                    end
+                    local event_text = sse_buffer:sub(1, event_end - 1)
+                    sse_buffer = sse_buffer:sub(event_end + 2)
+                    for _, event in ipairs(parse_sse(event_text)) do
+                        dispatch_chunk(event, state, opts)
+                    end
+                end
+            end,
+        }, function(result)
+            c:cleanup()
+            if sse_buffer ~= '' then
+                for _, event in ipairs(parse_sse(sse_buffer)) do
                     dispatch_chunk(event, state, opts)
                 end
             end
-        end,
-    }, function(result)
-        c:cleanup()
-        if sse_buffer ~= '' then
-            for _, event in ipairs(parse_sse(sse_buffer)) do
-                dispatch_chunk(event, state, opts)
-            end
-        end
 
-        if aborted then
-            opts.on_abort()
-            return
-        end
-
-        if completed then
-            return
-        end
-
-        completed = true
-        if result.code ~= 0 then
-            local err_msg = vim.trim(result.stderr or '')
-            if err_msg == '' then
-                err_msg = 'curl exited with code ' .. result.code
+            if aborted then
+                resolve({ aborted = true })
+                return
             end
-            opts.on_error(err_msg)
-        elseif state.finish_reason and state.finish_reason:find('^error') then
-            opts.on_error(state.finish_reason)
-        elseif
-            state.finish_reason == nil
-            and buf.len(state.content) == 0
-            and (not state.tool_calls or not next(state.tool_calls))
-        then
-            local err_msg = vim.trim(sse_buffer or '')
-            if err_msg == '' then
-                err_msg = 'curl response ended without content or finish reason'
+
+            if completed then
+                return
             end
-            opts.on_error(err_msg)
-        else
-            -- Normalize sparse tool_calls to contiguous array
-            local tool_calls = {}
-            if state.tool_calls then
-                local keys = {}
-                for k in pairs(state.tool_calls) do
-                    if type(k) == 'number' then
-                        keys[#keys + 1] = k
+
+            completed = true
+            if result.code ~= 0 then
+                local err_msg = vim.trim(result.stderr or '')
+                if err_msg == '' then
+                    err_msg = 'curl exited with code ' .. result.code
+                end
+                resolve({ error = err_msg })
+            elseif state.finish_reason and state.finish_reason:find('^error') then
+                resolve({ error = state.finish_reason })
+            elseif
+                state.finish_reason == nil
+                and buf.len(state.content) == 0
+                and (not state.tool_calls or not next(state.tool_calls))
+            then
+                local err_msg = vim.trim(sse_buffer or '')
+                if err_msg == '' then
+                    err_msg = 'curl response ended without content or finish reason'
+                end
+                resolve({ error = err_msg })
+            else
+                -- Normalize sparse tool_calls to contiguous array
+                local tool_calls = {}
+                if state.tool_calls then
+                    local keys = {}
+                    for k in pairs(state.tool_calls) do
+                        if type(k) == 'number' then
+                            keys[#keys + 1] = k
+                        end
+                    end
+                    table.sort(keys)
+                    for _, k in ipairs(keys) do
+                        local tc = state.tool_calls[k]
+                        -- Convert buf accumulators to strings
+                        local fn = tc['function']
+                        if type(fn.name) ~= 'string' then
+                            fn.name = fn.name:tostring()
+                        end
+                        if type(fn.arguments) ~= 'string' then
+                            fn.arguments = fn.arguments:tostring()
+                        end
+                        tool_calls[#tool_calls + 1] = tc
                     end
                 end
-                table.sort(keys)
-                for _, k in ipairs(keys) do
-                    local tc = state.tool_calls[k]
-                    -- Convert buf accumulators to strings
-                    local fn = tc['function']
-                    if type(fn.name) ~= 'string' then
-                        fn.name = fn.name:tostring()
-                    end
-                    if type(fn.arguments) ~= 'string' then
-                        fn.arguments = fn.arguments:tostring()
-                    end
-                    tool_calls[#tool_calls + 1] = tc
-                end
-            end
 
-            opts.on_done({
-                content = state.content:tostring(),
-                reasoning = state.reasoning:tostring(),
-                tool_calls = tool_calls,
-                finish_reason = state.finish_reason,
-                usage = state.usage,
-                response_id = state.response_id,
-            })
+                resolve({
+                    content = state.content:tostring(),
+                    reasoning = state.reasoning:tostring(),
+                    tool_calls = tool_calls,
+                    finish_reason = state.finish_reason,
+                    usage = state.usage,
+                    response_id = state.response_id,
+                })
+            end
+        end)
+
+        if opts.on_start then
+            opts.on_start(function()
+                aborted = true
+                if job then
+                    pcall(job.kill, job)
+                end
+            end)
         end
     end)
 
-    return function()
-        aborted = true
-        pcall(job.kill, job)
+    if not ok then
+        return { error = tostring(r) }
     end
+
+    return r
 end
 
 --- Non-streaming completion request.
