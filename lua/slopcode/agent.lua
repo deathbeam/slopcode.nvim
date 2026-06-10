@@ -68,7 +68,20 @@ local function execute_tools(tool_calls)
     end
 
     _tasks = tasks
-    local ok, results = pcall(async.await_all, tasks)
+    local task_to_idx = {}
+    for i, t in ipairs(tasks) do
+        task_to_idx[t] = i
+    end
+    local results = {}
+    local ok = pcall(function()
+        for task in async.iter(tasks) do
+            local ok_t, val = pcall(async.await, task)
+            local idx = task_to_idx[task]
+            if idx then
+                results[idx] = ok_t and { val } or {}
+            end
+        end
+    end)
     if not ok then
         results = {}
     end
