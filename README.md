@@ -2,16 +2,13 @@
   
   <img src="logo.png" alt="slopcode.nvim logo" />
 
-[![Neovix](https://img.shields.io/badge/Neovim-0.12+-blueviolet.svg?logo=neovim&style=flat-square)](https://neovim.io)
+[![Neovix](https://img.shields.io/badge/Neovim-0.12.3+-blueviolet.svg?logo=neovim&style=flat-square)](https://neovim.io)
 [![CI](https://img.shields.io/github/actions/workflow/status/deathbeam/slopcode.nvim/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/deathbeam/slopcode.nvim/actions)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
 </div>
 
 streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible API. reads files, edits code, runs commands - the usual slop pipeline. inspired by [pi.dev](https://pi.dev/), this thing will happily run whatever the model tells it to. use at your own risk (or use [script like this](scripts/sandbox.sh))
-
-> [!WARNING]
-> Requires latest Neovim Nightly with [this commit](https://github.com/neovim/neovim/commit/a977e1077be262563197049576e03f40949db6c3)
 
 <hr/>
 
@@ -36,7 +33,7 @@ streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible A
 
 ## how
 
-needs neovim 0.12+, curl, lynx and ripgrep.
+needs neovim 0.12.3+, curl, lynx and ripgrep.
 
 ```lua
 vim.pack.add({
