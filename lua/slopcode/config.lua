@@ -109,5 +109,7 @@ Current working directory: ${CWD}]=],
         grep = require('slopcode.tools.grep'),
         ls = require('slopcode.tools.ls'),
         find = require('slopcode.tools.find'),
+        ast_grep = require('slopcode.tools.ast_grep'),
+        ast_edit = require('slopcode.tools.ast_edit'),
     },
 }

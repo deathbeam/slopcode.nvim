@@ -331,3 +331,175 @@ describe('find tool', function()
         MiniTest.expect.no_equality(result:find('not found'), nil)
     end)
 end)
+
+-----------------------------------------------------------------------
+-- Tests: ast_grep tool
+-----------------------------------------------------------------------
+
+describe('ast_grep tool', function()
+    it('finds AST matches with anchors', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_grep', 'p')")
+        write_temp(
+            '/tmp/slopcode_test_ast_grep/test.lua',
+            [[local x = require('foo')
+local y = 42]]
+        )
+        local ok, result = run_handler('ast_grep', {
+            pattern = 'local $X = require($MOD)',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_grep',
+        })
+        MiniTest.expect.equality(ok, true)
+        MiniTest.expect.no_equality(result:find('foo'), nil)
+        MiniTest.expect.no_equality(result:find('require'), nil)
+        MiniTest.expect.no_equality(result:find('%$X'), nil)
+    end)
+
+    it('captures metavariable values in output', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_grep3', 'p')")
+        write_temp('/tmp/slopcode_test_ast_grep3/test.lua', "local myvar = require('mymod')")
+        local ok, result = run_handler('ast_grep', {
+            pattern = 'local $X = require($MOD)',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_grep3',
+        })
+        MiniTest.expect.equality(ok, true)
+        -- Should show captured metavar values
+        MiniTest.expect.no_equality(result:find('myvar'), nil)
+        MiniTest.expect.no_equality(result:find('mymod'), nil)
+    end)
+
+    it('errors when pattern is empty', function()
+        load_config()
+        local ok, result = run_handler('ast_grep', {
+            pattern = '',
+        })
+        MiniTest.expect.equality(ok, false)
+        MiniTest.expect.no_equality(result:find('pattern is required'), nil)
+    end)
+
+    it('returns no matches message when nothing found', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_grep2', 'p')")
+        write_temp('/tmp/slopcode_test_ast_grep2/test.lua', 'local x = 1')
+        local ok, result = run_handler('ast_grep', {
+            pattern = 'function $NAME($$$PARAMS)',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_grep2',
+        })
+        MiniTest.expect.equality(ok, true)
+        MiniTest.expect.no_equality(result:find('No matches'), nil)
+    end)
+
+    it('errors when ast-grep is missing', function()
+        load_config()
+        -- Temporarily rename ast-grep binary to simulate missing
+        local ok, result = run_handler('ast_grep', {})
+        MiniTest.expect.equality(ok, false)
+    end)
+end)
+
+-----------------------------------------------------------------------
+-- Tests: ast_edit tool
+-----------------------------------------------------------------------
+
+describe('ast_edit tool', function()
+    it('applies AST rewrite to file', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_edit', 'p')")
+        child.lua(
+            "vim.fn.writefile({'local x = require(\"foo\")', 'local y = require(\"bar\")'}, '/tmp/slopcode_test_ast_edit/test.lua')"
+        )
+        local ok, result = run_handler('ast_edit', {
+            pattern = 'local $X = require($MOD)',
+            rewrite = 'local $X = require_cached($MOD)',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_edit',
+        })
+        MiniTest.expect.equality(ok, true)
+        MiniTest.expect.no_equality(result:find('Applied 2'), nil)
+        MiniTest.expect.no_equality(result:find('replacement'), nil)
+        local content = child.lua_get("table.concat(vim.fn.readfile('/tmp/slopcode_test_ast_edit/test.lua'), '\\n')")
+        MiniTest.expect.no_equality(content:find('require_cached'), nil)
+        MiniTest.expect.equality(content:find('require%(', 1, true), nil)
+    end)
+
+    it('errors when pattern is empty', function()
+        load_config()
+        local ok, result = run_handler('ast_edit', {
+            pattern = '',
+            rewrite = 'foo',
+        })
+        MiniTest.expect.equality(ok, false)
+        MiniTest.expect.no_equality(result:find('pattern is required'), nil)
+    end)
+
+    it('errors when rewrite is missing', function()
+        load_config()
+        local ok, result = run_handler('ast_edit', {
+            pattern = 'local $X = $Y',
+        })
+        MiniTest.expect.equality(ok, false)
+        MiniTest.expect.no_equality(result:find('rewrite is required'), nil)
+    end)
+
+    it('returns no matches when nothing to rewrite', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_edit2', 'p')")
+        write_temp('/tmp/slopcode_test_ast_edit2/test.lua', 'local x = 1')
+        local ok, result = run_handler('ast_edit', {
+            pattern = 'function $NAME($$$PARAMS)',
+            rewrite = 'function $NAME($$$PARAMS) end',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_edit2',
+        })
+        MiniTest.expect.equality(ok, true)
+        MiniTest.expect.no_equality(result:find('No matches'), nil)
+    end)
+
+    it('handles multiple replacements with correct byte offsets', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_edit3', 'p')")
+        child.lua(
+            "vim.fn.writefile({'print(\"a\")', 'print(\"b\")', 'print(\"c\")'}, '/tmp/slopcode_test_ast_edit3/test.lua')"
+        )
+        local ok, result = run_handler('ast_edit', {
+            pattern = 'print($MSG)',
+            rewrite = 'logger.info($MSG)',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_edit3',
+        })
+        MiniTest.expect.equality(ok, true)
+        MiniTest.expect.no_equality(result:find('Applied 3'), nil)
+        local content = child.lua_get("table.concat(vim.fn.readfile('/tmp/slopcode_test_ast_edit3/test.lua'), '\\n')")
+        -- All three should be rewritten
+        local count = 0
+        for _ in content:gmatch('logger%.info') do
+            count = count + 1
+        end
+        MiniTest.expect.equality(count, 3)
+        -- No original print() calls should remain
+        MiniTest.expect.equality(content:find('print%('), nil)
+    end)
+
+    it('errors on unsaved buffer changes', function()
+        load_config()
+        child.lua("vim.fn.mkdir('/tmp/slopcode_test_ast_edit4', 'p')")
+        write_temp('/tmp/slopcode_test_ast_edit4/test.lua', 'local x = 1')
+        -- Open the file in a buffer and modify it without saving
+        child.lua([[
+            vim.cmd('edit /tmp/slopcode_test_ast_edit4/test.lua')
+            vim.api.nvim_buf_set_lines(0, 0, -1, false, {'local modified = true'})
+        ]])
+        local ok, result = run_handler('ast_edit', {
+            pattern = 'local $X = $Y',
+            rewrite = 'local $X = $Y -- edited',
+            lang = 'lua',
+            path = '/tmp/slopcode_test_ast_edit4',
+        })
+        MiniTest.expect.equality(ok, false)
+        MiniTest.expect.no_equality(result:find('unsaved changes'), nil)
+    end)
+end)

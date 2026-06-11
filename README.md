@@ -33,7 +33,7 @@ streaming AI chat with tool use, inside neovim. talks to any OpenAI-compatible A
 
 ## how
 
-needs neovim 0.12.3+, curl, lynx and ripgrep.
+needs neovim 0.12.3+, curl, lynx, ripgrep and ast-grep.
 
 ```lua
 vim.pack.add({
