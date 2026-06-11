@@ -32,8 +32,10 @@ jobs:
               with:
                   neovim: true
                   version: stable
-            - name: Install ripgrep and ast-grep
-              run: sudo apt-get update && sudo apt-get install -y ripgrep ast-grep
+            - name: Install ripgrep
+              run: sudo apt-get update && sudo apt-get install -y ripgrep
+            - name: Install ast-grep
+              run: sudo npm install -g @ast-grep/cli
             - name: Run tests
               run: make test
 
