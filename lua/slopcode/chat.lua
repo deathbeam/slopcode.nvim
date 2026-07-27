@@ -259,7 +259,7 @@ function M.omnifunc(findstart, base)
         end
     end
 
-    return #items > 0 and items or -3
+    return items
 end
 
 --- Open a model selection prompt and update the active model.
